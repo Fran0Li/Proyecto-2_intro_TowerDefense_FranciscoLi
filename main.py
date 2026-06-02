@@ -237,26 +237,53 @@ def mostrar_login(root, numero_jugador=1):
 #####################################################
 
 def mostrar_ranking(root):
-    # Construye y muestra la pantalla de ranking de jugadores.
-    #Mostrará el top 5 de defensores y atacantes leyendo jugadores.json.
-    #En esta rama solo es la estructura base, la lectura del JSON
-    #se implementa en feature/ranking.
-    
-    _limpiar(root)  # Limpia la ventana para mostrar solo esta pantalla
 
-    # Frame principal con el mismo fondo oscuro del menú
+    #Muestra el top 5 de jugadores defensores y atacantes
+    #leyendo los datos del archivo jugadores.json.
+    #    root: ventana principal de Tkinter
+
+    _limpiar(root)  # Limpia la ventana antes de construir
+
+    # Frame principal con fondo oscuro
     frame = tk.Frame(root, bg="#1a1a2e")
     frame.pack(expand=True, fill="both")
 
     # Título de la pantalla
-    tk.Label(frame,text="Ranking de jugadores",font=("Arial", 22, "bold"),bg="#1a1a2e", fg="#e0e0e0").pack(pady=(80, 30))
+    tk.Label( frame, text="Ranking de jugadores",font=("Arial", 22, "bold"), bg="#1a1a2e",fg="#e0e0e0").pack(pady=(50, 30))
 
-    # Mensaje temporal mientras se implementa la lectura del JSON
-    tk.Label(frame, text="(Ranking se implementa en el siguiente commit)",font=("Arial", 11), bg="#1a1a2e",fg="#888888").pack(pady=10)
+    # Carga todos los jugadores guardados en el JSON
+    jugadores = cargar_jugadores()
 
-    # Botón para regresar al menú principal
+    #  TOP 5 DEFENSORES 
+    tk.Label(frame,text="Top 5 Defensores",font=("Arial", 14, "bold"), bg="#1a1a2e", fg="#6bff8e").pack(pady=(10, 4))# Verde para defensores
+
+    # Ordena la lista completa por victorias_defensor de mayor a menor
+    # [:5] toma solo los primeros 5 resultados
+    top_def = sorted(jugadores, key=lambda j: j["victorias_defensor"], reverse=True)[:5]
+
+    if not top_def:
+        # Si no hay jugadores registrados aún
+        tk.Label(frame, text="Sin datos aún.", bg="#1a1a2e", fg="#888888").pack()
+    else:
+        # enumerate(top_def, 1) genera pares (posición, jugador) empezando en 1
+        for i, j in enumerate(top_def, 1):
+            tk.Label(frame, text=f"{i}. {j['usuario']} — {j['victorias_defensor']} victorias",font=("Arial", 12),bg="#1a1a2e",fg="#e0e0e0").pack()
+
+    #  TOP 5 ATACANTES
+    tk.Label( frame,text="Top 5 Atacantes",
+        font=("Arial", 14, "bold"),bg="#1a1a2e",fg="#ff6b6b").pack(pady=(20, 4))# Rojo para atacantes
+
+    # Mismo proceso pero ordenado por victorias_atacante
+    top_atac = sorted(jugadores, key=lambda j: j["victorias_atacante"], reverse=True)[:5]
+
+    if not top_atac:
+        tk.Label(frame, text="Sin datos aún.", bg="#1a1a2e", fg="#888888").pack()
+    else:
+        for i, j in enumerate(top_atac, 1):
+            tk.Label(frame, text=f"{i}. {j['usuario']} — {j['victorias_atacante']} victorias",font=("Arial", 12),bg="#1a1a2e",fg="#e0e0e0").pack()
+
+    # Botón para volver al menú principal
     _boton(frame, "Volver al menú", lambda: mostrar_menu(root))
-
 
 
 #VENTANA DE JUEGO
