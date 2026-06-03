@@ -136,6 +136,8 @@ def mostrar_menu(root):
 
 # Variable global que guarda los datos de los dos jugadores en la sesión actual
 jugadores_sesion = [None, None]  # [jugador1, jugador2]
+# Guarda la facción elegida por cada jugador en la sesión actual
+facciones_sesion = [None, None]  # [faccion_jugador1, faccion_jugador2]
 
 def mostrar_login(root, numero_jugador=1):
     
@@ -198,7 +200,7 @@ def mostrar_login(root, numero_jugador=1):
         if numero_jugador == 1:
             root.after(800, lambda: mostrar_login(root, 2))  # Espera 800ms y avanza
         else:
-            root.after(800, lambda: mostrar_menu(root))  # Ambos listos, volver al menú
+            root.after(800, lambda: mostrar_facciones(root, 1))  # Ambos listos, volver al menú
 
     # Función interna de registro 
     def intentar_registro():
@@ -231,6 +233,85 @@ def mostrar_login(root, numero_jugador=1):
     _boton(frame, "Registrarse",    intentar_registro)
     _boton(frame, "Volver al menú", lambda: mostrar_menu(root))
 
+
+#  VENTANA SELECCIÓN DE FACCIONES
+########################################
+
+def mostrar_facciones(root, numero_jugador=1):
+
+    #Muestra la pantalla de selección de facción para cada jugador.
+    #Se llama dos veces: primero jugador 1, luego jugador 2.
+    #Cada jugador debe elegir una facción distinta.
+    #Parámetros:
+    #    root:            ventana principal de Tkinter
+    #    numero_jugador:  1 o 2 según qué jugador está eligiendo
+    
+    _limpiar(root)
+
+    frame = tk.Frame(root, bg="#1a1a2e")
+    frame.pack(expand=True, fill="both")
+
+    # Título indicando qué jugador está eligiendo
+    tk.Label(
+        frame,
+        text=f"Jugador {numero_jugador} — Elige tu facción",
+        font=("Arial", 22, "bold"),
+        bg="#1a1a2e",
+        fg="#e0e0e0"
+    ).pack(pady=(60, 10))
+
+    # Muestra qué eligió el jugador anterior si ya eligió
+    if numero_jugador == 2 and facciones_sesion[0]:
+        tk.Label(frame,text=f"Jugador 1 eligió: {facciones_sesion[0]}",font=("Arial", 11),bg="#1a1a2e",fg="#888888").pack(pady=(0, 20))
+
+    # Etiqueta para mensajes de error
+    lbl_mensaje = tk.Label(frame,text="",font=("Arial", 10),bg="#1a1a2e",fg="#ff6b6b")
+    lbl_mensaje.pack(pady=(0, 10))
+
+    # Datos de cada facción: nombre, color del botón, descripción
+    facciones = [
+        ("Medieval",   "#4a3728", "Castillos, caballeros y ballestas"),
+        ("Futurista",  "#0d3b4f", "Tecnología, lásers y drones"),
+        ("Acuático",   "#0d3b4f", "Arrecifes, corrientes y criaturas marinas"),
+    ]
+
+    # Colores específicos por facción para diferenciarlos visualmente (temporal)
+    colores = {
+        "Medieval":  "#6b4c3b",
+        "Futurista": "#1b6ca8",
+        "Acuático":  "#0e7490",
+    }
+
+    def elegir_faccion(faccion):
+        
+        #Registra la facción elegida por el jugador actual.
+        #Valida que los dos jugadores no elijan la misma facción.
+        #Parámetros:
+        #    faccion: nombre de la facción elegida
+        
+        # Jugador 2 no puede elegir la misma facción que jugador 1
+        if numero_jugador == 2 and faccion == facciones_sesion[0]:
+            lbl_mensaje.config(text="Esa facción ya fue elegida por el Jugador 1.")
+            return
+
+        # Guarda la facción en la posición correcta
+        facciones_sesion[numero_jugador - 1] = faccion
+
+        if numero_jugador == 1:
+            # Si es jugador 1, pasa a jugador 2
+            mostrar_facciones(root, 2)
+        else:
+            # Ambos eligieron, abre la ventana del juego
+            mostrar_juego(root)
+
+    # Crea un botón por cada facción
+    for nombre, _, descripcion in facciones:
+        btn_frame = tk.Frame(frame, bg="#1a1a2e")
+        btn_frame.pack(pady=6)
+        #lambda captura nombre correcto
+        tk.Button(btn_frame,text=f"{nombre}\n{descripcion}",command=lambda f=nombre: elegir_faccion(f),font=("Arial", 12),bg=colores[nombre], fg="#ffffff",activebackground="#333333",width=30,height=3,bd=0,cursor="hand2").pack()#color unico por faccion
+
+    _boton(frame, "Volver al menú", lambda: mostrar_menu(root))
 
 
 #  VENTANA RANKING
@@ -286,13 +367,68 @@ def mostrar_ranking(root):
     _boton(frame, "Volver al menú", lambda: mostrar_menu(root))
 
 
-#VENTANA DE JUEGO
+#VENTANA DE JUEGO TABLERO 20X20
 ###################################################
+
 def mostrar_juego(root):
+    
+    #Abre la ventana del juego como Toplevel.
+    #Dibuja el tablero 20x20 usando un Canvas de Tkinter.
+    #La base central está fija en el centro del mapa.
+  
+    #    root: ventana principal de Tkinter
+    
+    # Abre una ventana nueva encima del menú
     ventana_juego = tk.Toplevel(root)
-    ventana_juego.title("Asedio y defensa :)")
-    ventana_juego.geometry("900x900")
+    ventana_juego.title("Asedio y defensa")
     ventana_juego.resizable(False, False)
+
+    # Tamaño de cada celda en píxeles
+    TAMANO_CELDA = 40
+
+    # Cantidad de filas y columnas del tablero
+    FILAS = 20
+    COLUMNAS = 20
+
+    # Tamaño total del canvas
+    ancho = COLUMNAS * TAMANO_CELDA  # 800px
+    alto = FILAS * TAMANO_CELDA      # 800px
+
+    ventana_juego.geometry(f"{ancho}x{alto}")
+
+    # Canvas donde se dibuja todo el tablero
+    canvas = tk.Canvas(ventana_juego, width=ancho, height=alto, bg="#2d2d2d")
+    canvas.pack()
+
+    # Posición fija de la base central (centro del mapa)
+    BASE_FILA = 10
+    BASE_COLUMNA = 10
+
+    # Dibuja cada celda del tablero
+    for fila in range(FILAS):
+        for col in range(COLUMNAS):
+
+            # Calcula las coordenadas de la celda
+            x1 = col * TAMANO_CELDA
+            y1 = fila * TAMANO_CELDA
+            x2 = x1 + TAMANO_CELDA
+            y2 = y1 + TAMANO_CELDA
+            # La celda de la base central tiene color diferente
+            if fila == BASE_FILA and col == BASE_COLUMNA:
+                color = "#e63946"  # Rojo para la base central
+            else:
+                # Alterna entre dos tonos de gris para efecto de cuadrícula
+                if (fila + col) % 2 == 0:
+                    color = "#3a3a3a"
+                else:
+                    color = "#2d2d2d"
+            # Dibuja el rectángulo de la celda
+            canvas.create_rectangle( x1, y1, x2, y2,fill=color,outline="#444444"  )#linea de borde entre celdas
+    # Etiqueta en la base central
+    canvas.create_text(
+        BASE_COLUMNA * TAMANO_CELDA + TAMANO_CELDA // 2,  # Centro X de la celda
+        BASE_FILA * TAMANO_CELDA + TAMANO_CELDA // 2,     # Centro Y de la celda
+        text="BASE", fill="#ffffff",font=("Arial", 8, "bold"))
 
 #  UTILIDADES
 ##################################################
