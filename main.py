@@ -4,7 +4,6 @@ import json
 import os 
 
 
-
 #CLASE DEL JUGADOR
 ######################################
 class Jugador:
@@ -48,7 +47,6 @@ def cargar_jugadores():
             return []
         return json.loads(contenido)  # Convierte el texto JSON a lista
 
-
 def guardar_jugadores(lista):
     
     #Escribe la lista completa de jugadores en jugadores.json.
@@ -60,7 +58,6 @@ def guardar_jugadores(lista):
     with open(RUTA_JUGADORES, "w") as f:
         # indent=4 hace el JSON legible con sangría
         json.dump(lista, f, indent=4)
-
 
 def registrar_jugador(usuario, contrasena):
     
@@ -83,7 +80,6 @@ def registrar_jugador(usuario, contrasena):
     jugadores.append(nuevo.a_dict())
     guardar_jugadores(jugadores)
     return True  # Registro exitoso
-
 
 def iniciar_sesion(usuario, contrasena):
     
@@ -113,6 +109,11 @@ def mostrar_menu(root):
     Limpia la ventana antes de dibujar para evitar que se acumulen widgets.
     """
     _limpiar(root)  # Borra todo lo que haya en la ventana antes de construir
+    # Reinicia las sesiones al volver al menú para una partida nueva
+    jugadores_sesion[0] = None
+    jugadores_sesion[1] = None
+    facciones_sesion[0] = None
+    facciones_sesion[1] = None
 
     # Frame principal que ocupa toda la ventana con fondo oscuro
     frame = tk.Frame(root, bg="#1a1a2e")
@@ -201,7 +202,6 @@ def mostrar_login(root, numero_jugador=1):
             root.after(800, lambda: mostrar_login(root, 2))  # Espera 800ms y avanza
         else:
             root.after(800, lambda: mostrar_facciones(root, 1))  # Ambos listos, volver al menú
-
     # Función interna de registro 
     def intentar_registro():
     
@@ -227,7 +227,6 @@ def mostrar_login(root, numero_jugador=1):
             return
 
         lbl_mensaje.config(text="¡Registro exitoso! Ya podés iniciar sesión.", fg="#6bff8e")
-
     #  Botones 
     _boton(frame, "Iniciar sesión", intentar_login)
     _boton(frame, "Registrarse",    intentar_registro)
@@ -318,7 +317,6 @@ def mostrar_facciones(root, numero_jugador=1):
 #####################################################
 
 def mostrar_ranking(root):
-
     #Muestra el top 5 de jugadores defensores y atacantes
     #leyendo los datos del archivo jugadores.json.
     #    root: ventana principal de Tkinter
@@ -382,18 +380,14 @@ def mostrar_juego(root):
     ventana_juego = tk.Toplevel(root)
     ventana_juego.title("Asedio y defensa")
     ventana_juego.resizable(False, False)
-
     # Tamaño de cada celda en píxeles
     TAMANO_CELDA = 40
-
     # Cantidad de filas y columnas del tablero
     FILAS = 20
     COLUMNAS = 20
-
     # Tamaño total del canvas
     ancho = COLUMNAS * TAMANO_CELDA  # 800px
     alto = FILAS * TAMANO_CELDA      # 800px
-
     ventana_juego.geometry(f"{ancho}x{alto}")
 
     # Canvas donde se dibuja todo el tablero

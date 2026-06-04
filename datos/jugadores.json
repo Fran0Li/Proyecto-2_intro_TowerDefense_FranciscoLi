@@ -4,5 +4,11 @@
         "contrasena": "1234",
         "victorias_defensor": 0,
         "victorias_atacante": 0
+    },
+    {
+        "usuario": "Leo",
+        "contrasena": "Messi",
+        "victorias_defensor": 0,
+        "victorias_atacante": 0
     }
 ]
