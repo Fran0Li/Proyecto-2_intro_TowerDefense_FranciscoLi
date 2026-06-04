@@ -26,6 +26,61 @@ class Jugador:
             "victorias_defensor": self.victorias_defensor,
             "victorias_atacante": self.victorias_atacante }
 
+# ============================================================
+#  CLASE TORRE (base)
+# ============================================================
+
+class Torre:
+    """
+    Clase base que representa una torre defensiva.
+    Todas las torres heredan de esta clase y comparten
+    estos atributos y métodos base.
+    """
+    def __init__(self, nombre, costo, vida, dano, alcance):
+        self.nombre = nombre        # Nombre visible de la torre
+        self.costo = costo          # Dinero necesario para construirla
+        self.vida = vida            # Puntos de vida, si llega a 0 se destruye
+        self.dano = dano            # Daño que hace por ataque normal
+        self.alcance = alcance      # Cantidad de celdas que puede atacar a distancia
+        self.turnos_habilidad = 0   # Cuenta los turnos para saber cuándo usar la habilidad
+        self.activa = True          # True = torre en pie, False = torre destruida
+        
+    def recibir_dano(self, cantidad):
+        #Resta vida a la torre cuando una unidad la ataca.
+        #Si la vida llega a 0 la marca como destruida.
+        # cantidad: puntos de daño que recibe la torre
+        self.vida -= cantidad  # Resta el daño recibido
+        if self.vida <= 0:     # Si se quedó sin vida
+            self.vida = 0          # No puede quedar en negativo
+            self.activa = False    # Torre destruida, ya no puede atacar
+    #Lógica de ataque cada turno
+    def atacar(self, unidad):
+        #Lógica de ataque cada turno.
+        #Cada 3 turnos activa la habilidad especial en lugar del ataque normal.
+        #  unidad: objeto Unidad que recibe el ataque
+        self.turnos_habilidad += 1         # Suma un turno al contador
+        if self.turnos_habilidad >= 3:     # Si ya pasaron 3 turnos
+            self.activar_habilidad(unidad) # Activa la habilidad especial
+            self.turnos_habilidad = 0      # Reinicia el contador a 0
+        else:
+            unidad.recibir_dano(self.dano) # Ataque normal
+
+    def activar_habilidad(self, unidad):
+        #Método que cada subclase sobreescribe con su habilidad propia.
+        #En la clase base no hace nada, es solo la plantilla.
+        pass  # Cada subclase define su propia habilidad aquí
+        
+    def esta_en_alcance(self, fila_torre, col_torre, fila_unidad, col_unidad):
+        #Comprueba si una unidad está dentro del alcance para ser atacada.
+        #Usa distancia Manhattan: |fila1-fila2| + |col1-col2|
+        #    fila_torre, col_torre:   posición de la torre en el tablero
+        #    fila_unidad, col_unidad: posición de la unidad en el tablero
+        #Retorna: True si está en alcance, False si no
+        distancia = abs(fila_torre - fila_unidad) + abs(col_torre - col_unidad)
+        return distancia <= self.alcance
+    def __str__(self):
+        #Texto de representación para imprimir la torre en consola.
+        return f"{self.nombre} | Vida: {self.vida} | Daño: {self.dano} | Alcance: {self.alcance}"
 
 #  MANEJO DE ARCHIVO jugadores.json
 ###################################################################
