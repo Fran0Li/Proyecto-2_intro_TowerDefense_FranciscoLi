@@ -26,9 +26,8 @@ class Jugador:
             "victorias_defensor": self.victorias_defensor,
             "victorias_atacante": self.victorias_atacante }
 
-# ============================================================
 #  CLASE TORRE (base)
-# ============================================================
+##############################################################
 
 class Torre:
     """
@@ -81,6 +80,47 @@ class Torre:
     def __str__(self):
         #Texto de representación para imprimir la torre en consola.
         return f"{self.nombre} | Vida: {self.vida} | Daño: {self.dano} | Alcance: {self.alcance}"
+    
+
+#  SUBCLASES DE TORRE
+############################################
+
+class TorreBasica(Torre):
+    
+    #Torre económica de estadísticas balanceadas.
+    #Cubrir zonas sin gastar demasiado dinero
+    #Habilidad: disparo doble, ataca dos veces en el mismo turno.
+
+    def __init__(self):                                         
+        super().__init__(nombre="Torre Básica",costo=80,vida=100,dano=20,alcance=3)# Llama al __init__ de Torre con los valores fijos
+        #Más barata, vida moderada, daño moderado, alcance medio
+    def activar_habilidad(self, unidad):
+
+        #Disparo doble: aplica el daño normal dos veces seguidas.
+        #Se activa automáticamente cada 3 turnos desde atacar().
+        
+        #    unidad: objeto Unidad que recibe los dos disparos
+        
+        unidad.recibir_dano(self.dano)  # Primer disparo
+        unidad.recibir_dano(self.dano)  # Segundo disparo inmediato
+        
+class TorrePesada(Torre):
+    
+    #Torre cara pero muy resistente y con alto daño.
+    #Para Zonas cercanas a la base central.
+    #Habilidad: daño en área, afecta a varias unidades a la vez.
+    
+    def __init__(self):
+        super().__init__(nombre="Torre Pesada",costo=200,vida=250,dano=45,alcance=2 ) #Más cara, mucha vida, daño alto, alcance corto
+    def activar_habilidad(self, unidades_en_area):
+        
+        #Daño en área: daña a todas las unidades de la lista recibida.
+        #El daño es la mitad del normal para balancear el juego.
+        #Se activa automáticamente cada 3 turnos desde atacar().
+        #Parámetros:
+        #    unidades_en_area: lista de objetos Unidad dentro del radio
+        for unidad in unidades_en_area:         # Recorre cada unidad en el área
+            unidad.recibir_dano(self.dano // 2) # Aplica la mitad del daño a cada una
 
 #  MANEJO DE ARCHIVO jugadores.json
 ###################################################################
@@ -136,6 +176,7 @@ def registrar_jugador(usuario, contrasena):
     guardar_jugadores(jugadores)
     return True  # Registro exitoso
 
+
 def iniciar_sesion(usuario, contrasena):
     
     #Verifica si el usuario y contraseña coinciden con algún registro.
@@ -152,8 +193,6 @@ def iniciar_sesion(usuario, contrasena):
             return j  # Devuelve los datos del jugador encontrado
 
     return None  # No se encontró coincidencia
-
-
 
 
 #  VENTANA MENU PRINCIPAL
@@ -186,7 +225,6 @@ def mostrar_menu(root):
     _boton(frame, "Ranking", lambda: mostrar_ranking(root)) # Lleva al ranking
     _boton(frame, "Salir",   root.quit)                     # Cierra la aplicación
 
-
 #  VENTANA LOGIN / REGISTRO
 ########################################
 
@@ -218,11 +256,9 @@ def mostrar_login(root, numero_jugador=1):
 
     #  Espacio contraseña 
     tk.Label(frame, text="Contraseña:",  font=("Arial", 12), bg="#1a1a2e",fg="#e0e0e0").pack()
-
     # show="*" oculta el texto con asteriscos como cualquier espacio de contraseña
     entry_contrasena = tk.Entry(frame, font=("Arial", 12), width=25, show="*")
     entry_contrasena.pack(pady=(4, 20))
-
     # Etiqueta para mensajes de error o éxito 
     # Se actualiza con .config(text=...) desde las funciones de login/registro
     lbl_mensaje = tk.Label(frame,text="", font=("Arial", 10), bg="#1a1a2e",fg="#ff6b6b" ) # Rojo para errores
@@ -240,13 +276,11 @@ def mostrar_login(root, numero_jugador=1):
         if not usuario or not contrasena:
             lbl_mensaje.config(text="Por favor completá ambos campos.", fg="#ff6b6b")
             return
-
+        
         datos = iniciar_sesion(usuario, contrasena)
-
         if datos is None:
             lbl_mensaje.config(text="Usuario o contraseña incorrectos.", fg="#ff6b6b")
             return
-
         # Guardar el jugador en la posición correcta de la sesión
         jugadores_sesion[numero_jugador - 1] = datos
         lbl_mensaje.config(text=f"¡Bienvenido, {datos['usuario']}!", fg="#6bff8e") #Verde para éxito
@@ -299,7 +333,6 @@ def mostrar_facciones(root, numero_jugador=1):
     #Parámetros:
     #    root:            ventana principal de Tkinter
     #    numero_jugador:  1 o 2 según qué jugador está eligiendo
-    
     _limpiar(root)
 
     frame = tk.Frame(root, bg="#1a1a2e")
