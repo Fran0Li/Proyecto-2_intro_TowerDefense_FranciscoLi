@@ -122,6 +122,25 @@ class TorrePesada(Torre):
         for unidad in unidades_en_area:         # Recorre cada unidad en el área
             unidad.recibir_dano(self.dano // 2) # Aplica la mitad del daño a cada una
 
+class TorreMagica(Torre):
+    
+    #Torre de soporte con poco daño pero habilidad muy poderosa.
+    #Su utilidad es inmovilizar unidades para que otras torres las destruyan.
+    #Habilidad: congelar, inmoviliza una unidad por 2 turnos.
+    
+    def __init__(self):
+        super().__init__(nombre="Torre Mágica",costo=150,vida=80,dano=10,alcance=4)
+        #Costo medio, poca vida, daño bajo, mayor alcance, buena habilidad especial
+    def activar_habilidad(self, unidad):
+        #Congela la unidad: le asigna congelada=True y turnos_congelada=2.
+        #La lógica del combate revisará estos atributos cada turno
+        #para saber si la unidad puede moverse o no.
+        #Se activa automáticamente cada 3 turnos desde atacar().
+        #
+        # unidad: objeto Unidad que queda congelada
+        unidad.congelada = True      # La unidad no se puede mover mientras sea True
+        unidad.turnos_congelada = 2  # Se descongelará después de 2 turnos
+
 #  MANEJO DE ARCHIVO jugadores.json
 ###################################################################
 
