@@ -141,6 +141,111 @@ class TorreMagica(Torre):
         unidad.congelada = True      # La unidad no se puede mover mientras sea True
         unidad.turnos_congelada = 2  # Se descongelará después de 2 turnos
 
+class Unidad:
+    """
+    Clase base que representa una unidad atacante.
+    Todas las unidades heredan de esta clase y comparten
+    estos atributos y métodos base.
+    """
+    def __init__(self, nombre, costo, vida, dano, velocidad):
+        self.nombre = nombre          # Nombre visible de la unidad
+        self.costo = costo            # Dinero necesario para comprarla
+        self.vida = vida              # Puntos de vida, si llega a 0 es eliminada
+        self.vida_maxima = vida       # Vida máxima que puede tener la unidad
+        self.dano = dano              # Daño que hace por ataque normal
+        self.velocidad = velocidad    # Cantidad de celdas que se puede mover por turno
+        self.turnos_habilidad = 0     # Cuenta los turnos para saber cuándo usar la habilidad
+        self.activa = True            # True = unidad viva, False = unidad eliminada
+
+    def recibir_dano(self, cantidad):
+        # Resta vida a la unidad cuando una torre o defensa la ataca.
+        # Si la vida llega a 0 la marca como destruida (eliminada).
+        # cantidad: puntos de daño que recibe la unidad
+        self.vida -= cantidad  # Resta el daño recibido
+        if self.vida <= 0:     # Si se quedó sin vida
+            self.vida = 0          # No puede quedar en negativo
+            self.activa = False    # Unidad eliminada, se quita del tablero
+
+    def atacar(self, objetivo):
+        # Lógica de ataque cada turno hacia una torre, muro o base central.
+        # Cada 3 turnos activa la habilidad especial en lugar del ataque normal.
+        # objetivo: objeto (Torre, Muro o Base) que recibe el ataque
+        self.turnos_habilidad += 1         # Suma un turno al contador
+        if self.turnos_habilidad >= 3:     # Si ya pasaron 3 turnos
+            self.activar_habilidad(objetivo) # Activa la habilidad especial
+            self.turnos_habilidad = 0      # Reinicia el contador a 0
+        else:
+            objetivo.recibir_dano(self.dano) # Ataque normal
+
+    def activar_habilidad(self, objetivo):
+        # Método que cada subclase sobreescribe con su habilidad propia.
+        # En la clase base no hace nada, es solo la plantilla.
+        pass  # Cada subclase define su propia habilidad aquí
+
+    def __str__(self):
+        # Texto de representación para imprimir la unidad en consola.
+        return f"{self.nombre} | Vida: {self.vida} | Daño: {self.dano} | Mov: {self.velocidad}"
+
+
+#  SUBCLASES DE UNIDAD (TROPAS ATACANTES)
+############################################
+
+class SoldadoBasico(Unidad):
+    """
+    Unidad económica de estadísticas balanceadas y normales.
+    Ideal para desgastar defensas sin arriesgar demasiado dinero.
+    Habilidad: ataque doble, realiza dos ataques consecutivos en el mismo turno.
+    """
+    def __init__(self):
+        # Llama al __init__ de Unidad con los valores fijos
+        # Bajo costo, estadísticas estándar y movimiento regular
+        super().__init__(nombre="Soldado Básico", costo=60, vida=100, dano=15, velocidad=2)
+
+    def activar_habilidad(self, objetivo):
+        # Ataque doble: aplica el daño normal dos veces seguidas en el mismo turno.
+        # Se activa automáticamente cada 3 turnos desde atacar().
+        # objetivo: objeto defensivo que recibe el impacto doble
+        objetivo.recibir_dano(self.dano)  # Primer impacto
+        objetivo.recibir_dano(self.dano)  # Segundo impacto inmediato
+
+
+class Tanque(Unidad):
+    """
+    Unidad muy pesada y resistente pero de movimiento lento.
+    Diseñado para absorber el daño de las torres y abrir paso.
+    Habilidad: escudo temporal, mitiga el daño o en este caso se cura a sí mismo
+    para simular una regeneración de armadura/escudo.
+    """
+    def __init__(self):
+        # Más caro, mucha vida, daño alto pero lento en movimiento
+        super().__init__(nombre="Tanque", costo=150, vida=250, dano=30, velocidad=1)
+
+    def activar_habilidad(self, objetivo):
+        # Escudo temporal / Auto-reparación: Al activarse, además de atacar al objetivo,
+        # recupera un porcentaje de su vida máxima para resistir más turnos.
+        # objetivo: objeto defensivo al que ataca mientras se protege
+        objetivo.recibir_dano(self.dano)  # Realiza su ataque normal
+        
+        # Recupera 40 puntos de vida (Escudo/Curación) sin pasarse de su máximo de 250
+        self.vida = min(self.vida_maxima, self.vida )
+
+
+class UnidadRapida(Unidad):
+    """
+    Unidad ágil con gran capacidad de movimiento pero frágil.
+    Ideal para flanquear o llegar rápido a la base central.
+    Habilidad: Daño extra contra estructuras (perforación).
+    """
+    def __init__(self):
+        # Costo medio, vida baja, daño base bajo, pero se mueve muy rápido
+        super().__init__(nombre="Unidad Rápida", costo=90, vida=75, dano=10, velocidad=4)
+
+    def activar_habilidad(self, objetivo):
+        # Daño extra (Perforación): Duplica el daño base de la unidad contra el objetivo 
+        # para emular una carga explosiva o sabotaje a la estructura.
+        # objetivo: objeto defensivo que sufre el daño incrementado
+        objetivo.recibir_dano(self.dano * 2)  # Inflige el doble de daño (20 de daño)
+
 #  MANEJO DE ARCHIVO jugadores.json
 ###################################################################
 
