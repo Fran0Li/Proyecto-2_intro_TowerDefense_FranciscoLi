@@ -41,7 +41,6 @@ class Torre:
         self.vida = vida            # Puntos de vida, si llega a 0 se destruye
         self.dano = dano            # Daño que hace por ataque normal
         self.alcance = alcance      # Cantidad de celdas que puede atacar a distancia
-        self.turnos_habilidad = 0   # Cuenta los turnos para saber cuándo usar la habilidad
         self.activa = True          # True = torre en pie, False = torre destruida
         
     def recibir_dano(self, cantidad):
@@ -54,15 +53,11 @@ class Torre:
             self.activa = False    # Torre destruida, ya no puede atacar
     #Lógica de ataque cada turno
     def atacar(self, unidad):
-        #Lógica de ataque cada turno.
-        #Cada 3 turnos activa la habilidad especial en lugar del ataque normal.
-        #  unidad: objeto Unidad que recibe el ataque
-        self.turnos_habilidad += 1         # Suma un turno al contador
-        if self.turnos_habilidad >= 3:     # Si ya pasaron 3 turnos
-            self.activar_habilidad(unidad) # Activa la habilidad especial
-            self.turnos_habilidad = 0      # Reinicia el contador a 0
-        else:
-            unidad.recibir_dano(self.dano) # Ataque normal
+        #Realiza un ataque normal a la unidad objeto
+        #ciclo mostrar_juego decido cuando
+        #llamar atacar y llamar la habilidad
+        #por tiempo con .after
+        unidad.recibir_dano(self.dano) #ataque directo
 
     def activar_habilidad(self, unidad):
         #Método que cada subclase sobreescribe con su habilidad propia.
@@ -141,6 +136,9 @@ class TorreMagica(Torre):
         unidad.congelada = True      # La unidad no se puede mover mientras sea True
         unidad.turnos_congelada = 2  # Se descongelará después de 2 turnos
 
+#CLASES DE LAS UNIDADES (TROPAS)
+##########################################
+
 class Unidad:
     """
     Clase base que representa una unidad atacante.
@@ -154,7 +152,6 @@ class Unidad:
         self.vida_maxima = vida       # Vida máxima que puede tener la unidad
         self.dano = dano              # Daño que hace por ataque normal
         self.velocidad = velocidad    # Cantidad de celdas que se puede mover por turno
-        self.turnos_habilidad = 0     # Cuenta los turnos para saber cuándo usar la habilidad
         self.activa = True            # True = unidad viva, False = unidad eliminada
 
     def recibir_dano(self, cantidad):
@@ -167,15 +164,12 @@ class Unidad:
             self.activa = False    # Unidad eliminada, se quita del tablero
 
     def atacar(self, objetivo):
-        # Lógica de ataque cada turno hacia una torre, muro o base central.
-        # Cada 3 turnos activa la habilidad especial en lugar del ataque normal.
-        # objetivo: objeto (Torre, Muro o Base) que recibe el ataque
-        self.turnos_habilidad += 1         # Suma un turno al contador
-        if self.turnos_habilidad >= 3:     # Si ya pasaron 3 turnos
-            self.activar_habilidad(objetivo) # Activa la habilidad especial
-            self.turnos_habilidad = 0      # Reinicia el contador a 0
-        else:
-            objetivo.recibir_dano(self.dano) # Ataque normal
+        #Realiza un ataque normal al objetivo.
+        #El ciclo de combate en mostrar_juego decide cuándo
+        #llamar a atacar() y cuándo llamar a activar_habilidad()
+        #usando after() de Tkinter con intervalos de tiempo.
+        #objetivo: Torre o base que recibe el ataque
+        objetivo.recibir_dano(self.dano)  # Ataque normal directo
 
     def activar_habilidad(self, objetivo):
         # Método que cada subclase sobreescribe con su habilidad propia.
