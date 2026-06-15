@@ -574,23 +574,19 @@ def mostrar_ranking(root):
 #VENTANA DE JUEGO TABLERO 20X20
 ###################################################
 
-#VENTANA DE JUEGO TABLERO 20X20
-###################################################
 
-def esta_en_zona_construccion(fila, col, base_fila, base_columna, radio):
+def esta_en_zona_construccion(fila, col, centro_fila, centro_columna, radio):
     """
-    Determina si una celda está dentro de la zona donde el defensor
-    puede construir torres. Usa distancia Manhattan desde la base.
-    La celda de la base misma NO cuenta como zona de construcción.
-    Parámetros:
-        fila, col:               celda a evaluar
-        base_fila, base_columna: posición de la base central
-        radio:                   distancia máxima permitida desde la base
-    Retorna: True si se puede construir en esa celda, False si no
+    Determina si una celda está dentro del área donde el defensor
+    puede construir. Incluye la celda central — ahí también puede
+    ir la base, ya que su posición no es fija sino elegida por el jugador.
+    Usa distancia Manhattan desde el centro del área.
+        fila, col:                   celda a evaluar
+        centro_fila, centro_columna: centro del área de construcción
+        radio:                       distancia máxima permitida desde el centro
+    Retorna: True si la celda está dentro del área permitida, False si no
     """
-    if fila == base_fila and col == base_columna:
-        return False  # No se puede construir sobre la base misma
-    distancia = abs(fila - base_fila) + abs(col - base_columna)  # Distancia Manhattan
+    distancia = abs(fila - centro_fila) + abs(col - centro_columna)  # Distancia Manhattan
     return distancia <= radio
 
 
@@ -609,58 +605,144 @@ def esta_en_zona_despliegue(fila, col, filas, columnas):
 
 def mostrar_juego(root):
     """
-    Abre la ventana del juego como Toplevel.
-    Dibuja el tablero 20x20 marcando tres zonas con colores distintos:
-      - Base central (roja, fija en el centro)
-      - Zona de construcción del defensor (verde, alrededor de la base)
-      - Zona de despliegue del atacante (naranja, borde del tablero)
-    El resto del tablero es zona neutral por donde avanzan las unidades.
+    Abre la ventana del juego como Toplevel y oculta el menú principal
+    mientras se juega (root.withdraw). Al volver al menú o cerrar esta
+    ventana, el menú reaparece (root.deiconify).
+    El defensor coloca su base central haciendo clic dentro de la
+    zona de construcción (verde).
+    Parámetros:
         root: ventana principal de Tkinter
     """
+    root.withdraw()  # Oculta el menú principal mientras se juega
+
     ventana_juego = tk.Toplevel(root)
-    ventana_juego.title("Asedio y defensa")
+    ventana_juego.title("Asedio y defensa — Fase de construcción")
     ventana_juego.resizable(False, False)
 
-    TAMANO_CELDA = 35       # Tamaño de cada celda en píxeles
-    FILAS = 20              # Cantidad de filas del tablero
-    COLUMNAS = 20           # Cantidad de columnas del tablero
-    BASE_FILA = 10          # Fila fija de la base central
-    BASE_COLUMNA = 10       # Columna fija de la base central
-    RADIO_CONSTRUCCION = 5  # Distancia máxima desde la base para poder construir
+    TAMANO_CELDA = 35
+    FILAS = 20
+    COLUMNAS = 20
+    CENTRO_FILA = 10
+    CENTRO_COLUMNA = 10
+    RADIO_CONSTRUCCION = 5
 
-    ancho = COLUMNAS * TAMANO_CELDA  # Ancho total del canvas
-    alto = FILAS * TAMANO_CELDA      # Alto total del canvas
-    ventana_juego.geometry(f"{ancho}x{alto}")
+    ancho = COLUMNAS * TAMANO_CELDA
+    alto = FILAS * TAMANO_CELDA
+
+    def volver_al_menu():
+        """
+        Cierra la ventana del juego y vuelve a mostrar el menú principal.
+        Se usa en el botón "Volver al menú" y también si el jugador
+        cierra esta ventana con la X.
+        """
+        ventana_juego.destroy()  # Cierra la ventana del juego
+        root.deiconify()         # Vuelve a mostrar el menú principal
+
+    # Si cierran la ventana con la X, también vuelve a aparecer el menú
+    ventana_juego.protocol("WM_DELETE_WINDOW", volver_al_menu)
+
+    # Alto total = tablero + barra inferior con el botón
+    ventana_juego.geometry(f"{ancho}x{alto + 45}")
 
     canvas = tk.Canvas(ventana_juego, width=ancho, height=alto, bg="#2d2d2d")
     canvas.pack()
 
-    # Dibuja cada celda del tablero según la zona a la que pertenece
+    # Barra inferior con el botón para volver al menú
+    barra_inferior = tk.Frame(ventana_juego, bg="#1a1a2e")
+    barra_inferior.pack(fill="x")
+    tk.Button(
+        barra_inferior, text="Volver al menú", command=volver_al_menu,
+        font=("Arial", 10), bg="#16213e", fg="#e0e0e0",
+        activebackground="#0f3460", activeforeground="#ffffff",
+        bd=0, cursor="hand2"
+    ).pack(pady=4)
+
+    # base_pos guarda la posición [fila, col] de la base una vez colocada
+    base_pos = [None, None]
+
+    def dibujar_celda(fila, col):
+        """
+        Dibuja o redibuja una sola celda del tablero según su estado actual.
+        Usa una tag única por celda para poder borrar y redibujar
+        solo esa celda sin afectar las demás.
+        Parámetros:
+            fila, col: posición de la celda a dibujar
+        """
+        x1 = col * TAMANO_CELDA
+        y1 = fila * TAMANO_CELDA
+        x2 = x1 + TAMANO_CELDA
+        y2 = y1 + TAMANO_CELDA
+
+        canvas.delete(f"celda_{fila}_{col}")
+
+        if fila == base_pos[0] and col == base_pos[1]:
+            color = "#e63946"  # Rojo: aquí está la base
+            texto = "BASE"
+        elif esta_en_zona_construccion(fila, col, CENTRO_FILA, CENTRO_COLUMNA, RADIO_CONSTRUCCION):
+            color = "#1d4d3a"  # Verde: zona de construcción
+            texto = ""
+        elif esta_en_zona_despliegue(fila, col, FILAS, COLUMNAS):
+            color = "#4a2f1f"  # Naranja: zona de despliegue
+            texto = ""
+        else:
+            color = "#3a3a3a" if (fila + col) % 2 == 0 else "#2d2d2d"
+            texto = ""
+
+        canvas.create_rectangle(x1, y1, x2, y2, fill=color, outline="#444444", tags=f"celda_{fila}_{col}")
+        if texto:
+            canvas.create_text(
+                (x1 + x2) // 2, (y1 + y2) // 2,
+                text=texto, fill="#ffffff", font=("Arial", 8, "bold"),
+                tags=f"celda_{fila}_{col}"
+            )
+
+    # Dibuja el tablero completo la primera vez
     for fila in range(FILAS):
         for col in range(COLUMNAS):
-            x1 = col * TAMANO_CELDA
-            y1 = fila * TAMANO_CELDA
-            x2 = x1 + TAMANO_CELDA
-            y2 = y1 + TAMANO_CELDA
+            dibujar_celda(fila, col)
 
-            if fila == BASE_FILA and col == BASE_COLUMNA:
-                color = "#e63946"  # Rojo: base central
-            elif esta_en_zona_construccion(fila, col, BASE_FILA, BASE_COLUMNA, RADIO_CONSTRUCCION):
-                color = "#1d4d3a"  # Verde oscuro: zona de construcción del defensor
-            elif esta_en_zona_despliegue(fila, col, FILAS, COLUMNAS):
-                color = "#4a2f1f"  # Naranja oscuro: zona de despliegue del atacante
-            else:
-                # Zona neutral: alterna dos grises para efecto de cuadrícula
-                color = "#3a3a3a" if (fila + col) % 2 == 0 else "#2d2d2d"
+    def al_hacer_clic(event):
+        """
+        Maneja el clic del jugador sobre el tablero.
+        Por ahora solo coloca la base central, y solo la primera vez.
+        Parámetros:
+            event: evento de clic; event.x y event.y son coordenadas en píxeles
+        """
+        # base_pos[0] empieza en None. Si ya tiene un valor (no es None),
+        # significa que el jugador ya colocó la base antes,
+        # entonces este clic no debe hacer nada más.
+        if base_pos[0] is not None:
+            return  # La base ya está colocada, ignora este clic
 
-            canvas.create_rectangle(x1, y1, x2, y2, fill=color, outline="#444444")
+        # Tkinter entrega la posición del clic en píxeles (event.x, event.y),
+        # medidos desde la esquina superior izquierda del canvas.
+        # La división entera (//) convierte píxeles a coordenadas de celda.
+        col = event.x // TAMANO_CELDA
+        fila = event.y // TAMANO_CELDA
 
-    # Etiqueta de texto sobre la celda de la base central
-    canvas.create_text(
-        BASE_COLUMNA * TAMANO_CELDA + TAMANO_CELDA // 2,
-        BASE_FILA * TAMANO_CELDA + TAMANO_CELDA // 2,
-        text="BASE", fill="#ffffff", font=("Arial", 8, "bold")
-    )
+        # Verifica que la celda calculada exista dentro del tablero (0 a 19).
+        # Esto evita errores si el clic cae justo en el borde de la ventana
+        # y el cálculo da una fila o columna fuera de rango.
+        if not (0 <= fila < FILAS and 0 <= col < COLUMNAS):
+            return  # Clic fuera del tablero, no hace nada
+
+        # La base solo se puede colocar dentro de la zona verde
+        # (zona de construcción). Si la celda elegida no está
+        # dentro de esa zona, se ignora el clic.
+        if not esta_en_zona_construccion(fila, col, CENTRO_FILA, CENTRO_COLUMNA, RADIO_CONSTRUCCION):
+            return  # Celda fuera de la zona permitida, no hace nada
+
+        # Si llegó hasta aquí, todas las validaciones pasaron:
+        # guarda la posición elegida como la nueva base.
+        # base_pos es una lista, así que modificarla aquí afecta
+        # la misma lista que usa dibujar_celda() para saber dónde dibujar "BASE"
+        base_pos[0], base_pos[1] = fila, col
+
+        # Redibuja solo esa celda — ahora se va a pintar roja con el texto "BASE"
+        dibujar_celda(fila, col)
+
+    # Conecta el evento de clic izquierdo del mouse con la función al_hacer_clic
+    canvas.bind("<Button-1>", al_hacer_clic)
 
 #  UTILIDADES
 ##################################################
