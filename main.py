@@ -605,11 +605,13 @@ def esta_en_zona_despliegue(fila, col, filas, columnas):
 
 def mostrar_juego(root):
     """
-    Abre la ventana del juego como Toplevel y oculta el menú principal
-    mientras se juega (root.withdraw). Al volver al menú o cerrar esta
-    ventana, el menú reaparece (root.deiconify).
-    El defensor coloca su base central haciendo clic dentro de la
-    zona de construcción (verde).
+    Abre la ventana del juego como Toplevel y oculta el menú principal.
+    Muestra el tablero junto a un panel lateral con el dinero del
+    defensor y las torres disponibles para comprar.
+    Flujo de clics sobre el tablero:
+        1. Primer clic en zona verde -> coloca la base
+        2. Clics siguientes con una torre seleccionada en el panel ->
+           coloca esa torre si hay dinero y la celda es válida
     Parámetros:
         root: ventana principal de Tkinter
     """
@@ -625,27 +627,43 @@ def mostrar_juego(root):
     CENTRO_FILA = 10
     CENTRO_COLUMNA = 10
     RADIO_CONSTRUCCION = 5
+    ANCHO_PANEL = 220  # Ancho del panel lateral en píxeles
 
-    ancho = COLUMNAS * TAMANO_CELDA
+    ancho_tablero = COLUMNAS * TAMANO_CELDA
     alto = FILAS * TAMANO_CELDA
 
     def volver_al_menu():
-        """
-        Cierra la ventana del juego y vuelve a mostrar el menú principal.
-        Se usa en el botón "Volver al menú" y también si el jugador
-        cierra esta ventana con la X.
-        """
-        ventana_juego.destroy()  # Cierra la ventana del juego
-        root.deiconify()         # Vuelve a mostrar el menú principal
+        """Cierra la ventana del juego y vuelve a mostrar el menú principal."""
+        ventana_juego.destroy()
+        root.deiconify()
 
-    # Si cierran la ventana con la X, también vuelve a aparecer el menú
     ventana_juego.protocol("WM_DELETE_WINDOW", volver_al_menu)
 
-    # Alto total = tablero + barra inferior con el botón
-    ventana_juego.geometry(f"{ancho}x{alto + 45}")
+    # Ancho total = tablero + panel. Alto total = tablero + barra inferior
+    ventana_juego.geometry(f"{ancho_tablero + ANCHO_PANEL}x{alto + 45}")
 
-    canvas = tk.Canvas(ventana_juego, width=ancho, height=alto, bg="#2d2d2d")
-    canvas.pack()
+    # ---- Estado del juego (listas para poder modificarlas dentro de funciones internas) ----
+    dinero_defensor = [500]       # Dinero inicial del defensor
+    base_pos = [None, None]       # Posición [fila, col] de la base, None hasta colocarla
+    torres_colocadas = {}         # {(fila, col): objeto Torre}
+    torre_seleccionada = [None]   # Clase de torre elegida en el panel (TorreBasica, etc.)
+
+    # Información visual y de costo de cada tipo de torre
+    INFO_TORRES = {
+        TorreBasica:  {"nombre": "Torre Básica", "costo": 80,  "color": "#3a7d5c", "simbolo": "B"},
+        TorrePesada:  {"nombre": "Torre Pesada", "costo": 200, "color": "#8b3a3a", "simbolo": "P"},
+        TorreMagica:  {"nombre": "Torre Mágica", "costo": 150, "color": "#5a4a8b", "simbolo": "M"},
+    }
+
+    # ---- Contenedor que une el tablero y el panel lado a lado ----
+    contenedor = tk.Frame(ventana_juego)
+    contenedor.pack()
+
+    canvas = tk.Canvas(contenedor, width=ancho_tablero, height=alto, bg="#2d2d2d")
+    canvas.grid(row=0, column=0)
+
+    panel = tk.Frame(contenedor, width=ANCHO_PANEL, height=alto, bg="#16213e")
+    panel.grid(row=0, column=1, sticky="ns")
 
     # Barra inferior con el botón para volver al menú
     barra_inferior = tk.Frame(ventana_juego, bg="#1a1a2e")
@@ -657,14 +675,49 @@ def mostrar_juego(root):
         bd=0, cursor="hand2"
     ).pack(pady=4)
 
-    # base_pos guarda la posición [fila, col] de la base una vez colocada
-    base_pos = [None, None]
+    # ---- Contenido del panel ----
+    tk.Label(panel, text="Fase de Construcción", font=("Arial", 12, "bold"),
+             bg="#16213e", fg="#e0e0e0").pack(pady=(15, 5))
 
+    lbl_dinero = tk.Label(panel, text=f"Dinero: {dinero_defensor[0]}",
+                           font=("Arial", 12, "bold"), bg="#16213e", fg="#6bff8e")
+    lbl_dinero.pack(pady=(0, 10))
+
+    lbl_seleccion = tk.Label(panel, text="Elegí una torre",
+                              font=("Arial", 9), bg="#16213e", fg="#888888", wraplength=180)
+    lbl_seleccion.pack(pady=(0, 10))
+
+    # Etiqueta para mensajes de error al intentar colocar (dinero, celda ocupada, etc.)
+    lbl_estado = tk.Label(panel, text="", font=("Arial", 9),
+                           bg="#16213e", fg="#ff6b6b", wraplength=180)
+    lbl_estado.pack(pady=(0, 10))
+
+    def seleccionar_torre(clase_torre):
+        """
+        Marca qué torre quedó seleccionada en el panel.
+        El próximo clic válido en el tablero colocará esta torre.
+        Parámetros:
+            clase_torre: la clase (TorreBasica, TorrePesada o TorreMagica), sin instanciar
+        """
+        torre_seleccionada[0] = clase_torre
+        info = INFO_TORRES[clase_torre]
+        lbl_seleccion.config(text=f"Seleccionada: {info['nombre']} (${info['costo']})")
+        lbl_estado.config(text="")  # Limpia mensajes de error anteriores
+
+    # Crea un botón por cada tipo de torre
+    for clase_torre, info in INFO_TORRES.items():
+        tk.Button(
+            panel, text=f"{info['nombre']}\n${info['costo']}",
+            command=lambda c=clase_torre: seleccionar_torre(c),  # lambda captura la clase correcta
+            font=("Arial", 10), bg=info["color"], fg="#ffffff",
+            activebackground="#333333", width=18, height=2, bd=0, cursor="hand2"
+        ).pack(pady=4)
+
+    # ---- Dibujo del tablero ----
     def dibujar_celda(fila, col):
         """
-        Dibuja o redibuja una sola celda del tablero según su estado actual.
-        Usa una tag única por celda para poder borrar y redibujar
-        solo esa celda sin afectar las demás.
+        Dibuja o redibuja una sola celda del tablero según su estado:
+        base, torre colocada, zona de construcción, zona de despliegue o neutral.
         Parámetros:
             fila, col: posición de la celda a dibujar
         """
@@ -676,8 +729,13 @@ def mostrar_juego(root):
         canvas.delete(f"celda_{fila}_{col}")
 
         if fila == base_pos[0] and col == base_pos[1]:
-            color = "#e63946"  # Rojo: aquí está la base
+            color = "#e63946"  # Rojo: base
             texto = "BASE"
+        elif (fila, col) in torres_colocadas:
+            torre = torres_colocadas[(fila, col)]
+            info = INFO_TORRES[type(torre)]  # type() obtiene la clase del objeto
+            color = info["color"]
+            texto = info["simbolo"]
         elif esta_en_zona_construccion(fila, col, CENTRO_FILA, CENTRO_COLUMNA, RADIO_CONSTRUCCION):
             color = "#1d4d3a"  # Verde: zona de construcción
             texto = ""
@@ -692,57 +750,73 @@ def mostrar_juego(root):
         if texto:
             canvas.create_text(
                 (x1 + x2) // 2, (y1 + y2) // 2,
-                text=texto, fill="#ffffff", font=("Arial", 8, "bold"),
+                text=texto, fill="#ffffff", font=("Arial", 9, "bold"),
                 tags=f"celda_{fila}_{col}"
             )
 
-    # Dibuja el tablero completo la primera vez
     for fila in range(FILAS):
         for col in range(COLUMNAS):
             dibujar_celda(fila, col)
 
+    #  Clics sobre el tablero 
     def al_hacer_clic(event):
         """
         Maneja el clic del jugador sobre el tablero.
-        Por ahora solo coloca la base central, y solo la primera vez.
+        Primero coloca la base (un solo clic, cualquier celda verde).
+        Después, si hay una torre seleccionada en el panel, intenta
+        colocarla: valida zona, celda libre y dinero suficiente.
         Parámetros:
             event: evento de clic; event.x y event.y son coordenadas en píxeles
         """
-        # base_pos[0] empieza en None. Si ya tiene un valor (no es None),
-        # significa que el jugador ya colocó la base antes,
-        # entonces este clic no debe hacer nada más.
-        if base_pos[0] is not None:
-            return  # La base ya está colocada, ignora este clic
-
-        # Tkinter entrega la posición del clic en píxeles (event.x, event.y),
-        # medidos desde la esquina superior izquierda del canvas.
-        # La división entera (//) convierte píxeles a coordenadas de celda.
         col = event.x // TAMANO_CELDA
         fila = event.y // TAMANO_CELDA
 
-        # Verifica que la celda calculada exista dentro del tablero (0 a 19).
-        # Esto evita errores si el clic cae justo en el borde de la ventana
-        # y el cálculo da una fila o columna fuera de rango.
         if not (0 <= fila < FILAS and 0 <= col < COLUMNAS):
-            return  # Clic fuera del tablero, no hace nada
+            return  # Clic fuera del tablero
 
-        # La base solo se puede colocar dentro de la zona verde
-        # (zona de construcción). Si la celda elegida no está
-        # dentro de esa zona, se ignora el clic.
+        # Paso 1: colocar la base (solo la primera vez)
+        if base_pos[0] is None:
+            if not esta_en_zona_construccion(fila, col, CENTRO_FILA, CENTRO_COLUMNA, RADIO_CONSTRUCCION):
+                lbl_estado.config(text="La base debe ir en la zona verde.")
+                return
+            base_pos[0], base_pos[1] = fila, col
+            dibujar_celda(fila, col)
+            lbl_estado.config(text="")
+            return
+
+        # Paso 2: colocar torres (la base ya existe)
+        if torre_seleccionada[0] is None:
+            lbl_estado.config(text="Elegí una torre del panel primero.")
+            return
+
+        if (fila, col) == (base_pos[0], base_pos[1]):
+            lbl_estado.config(text="No se puede construir sobre la base.")
+            return
+
+        if (fila, col) in torres_colocadas:
+            lbl_estado.config(text="Ya hay una torre en esa celda.")
+            return
+
         if not esta_en_zona_construccion(fila, col, CENTRO_FILA, CENTRO_COLUMNA, RADIO_CONSTRUCCION):
-            return  # Celda fuera de la zona permitida, no hace nada
+            lbl_estado.config(text="Solo podés construir en la zona verde.")
+            return
 
-        # Si llegó hasta aquí, todas las validaciones pasaron:
-        # guarda la posición elegida como la nueva base.
-        # base_pos es una lista, así que modificarla aquí afecta
-        # la misma lista que usa dibujar_celda() para saber dónde dibujar "BASE"
-        base_pos[0], base_pos[1] = fila, col
+        clase_torre = torre_seleccionada[0]
+        info = INFO_TORRES[clase_torre]
 
-        # Redibuja solo esa celda — ahora se va a pintar roja con el texto "BASE"
+        if dinero_defensor[0] < info["costo"]:
+            lbl_estado.config(text="No tenés suficiente dinero.")
+            return
+
+        # Todo válido: coloca la torre, descuenta el dinero y actualiza la pantalla
+        torres_colocadas[(fila, col)] = clase_torre()  # Instancia una torre nueva
+        dinero_defensor[0] -= info["costo"]
+        lbl_dinero.config(text=f"Dinero: {dinero_defensor[0]}")
+        lbl_estado.config(text="")
         dibujar_celda(fila, col)
 
-    # Conecta el evento de clic izquierdo del mouse con la función al_hacer_clic
     canvas.bind("<Button-1>", al_hacer_clic)
+
 
 #  UTILIDADES
 ##################################################
