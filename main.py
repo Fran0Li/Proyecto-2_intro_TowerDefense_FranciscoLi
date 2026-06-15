@@ -574,61 +574,93 @@ def mostrar_ranking(root):
 #VENTANA DE JUEGO TABLERO 20X20
 ###################################################
 
+#VENTANA DE JUEGO TABLERO 20X20
+###################################################
+
+def esta_en_zona_construccion(fila, col, base_fila, base_columna, radio):
+    """
+    Determina si una celda está dentro de la zona donde el defensor
+    puede construir torres. Usa distancia Manhattan desde la base.
+    La celda de la base misma NO cuenta como zona de construcción.
+    Parámetros:
+        fila, col:               celda a evaluar
+        base_fila, base_columna: posición de la base central
+        radio:                   distancia máxima permitida desde la base
+    Retorna: True si se puede construir en esa celda, False si no
+    """
+    if fila == base_fila and col == base_columna:
+        return False  # No se puede construir sobre la base misma
+    distancia = abs(fila - base_fila) + abs(col - base_columna)  # Distancia Manhattan
+    return distancia <= radio
+
+
+def esta_en_zona_despliegue(fila, col, filas, columnas):
+    """
+    Determina si una celda está en el borde del tablero, donde
+    el atacante puede desplegar sus unidades.
+    Parámetros:
+        fila, col:       celda a evaluar
+        filas, columnas: dimensiones totales del tablero
+    Retorna: True si es una celda del borde, False si no
+    """
+    # Borde = primera o última fila, o primera o última columna
+    return fila == 0 or fila == filas - 1 or col == 0 or col == columnas - 1
+
+
 def mostrar_juego(root):
-    
-    #Abre la ventana del juego como Toplevel.
-    #Dibuja el tablero 20x20 usando un Canvas de Tkinter.
-    #La base central está fija en el centro del mapa.
-  
-    #    root: ventana principal de Tkinter
-    
-    # Abre una ventana nueva encima del menú
+    """
+    Abre la ventana del juego como Toplevel.
+    Dibuja el tablero 20x20 marcando tres zonas con colores distintos:
+      - Base central (roja, fija en el centro)
+      - Zona de construcción del defensor (verde, alrededor de la base)
+      - Zona de despliegue del atacante (naranja, borde del tablero)
+    El resto del tablero es zona neutral por donde avanzan las unidades.
+        root: ventana principal de Tkinter
+    """
     ventana_juego = tk.Toplevel(root)
     ventana_juego.title("Asedio y defensa")
     ventana_juego.resizable(False, False)
-    # Tamaño de cada celda en píxeles
-    TAMANO_CELDA = 40
-    # Cantidad de filas y columnas del tablero
-    FILAS = 20
-    COLUMNAS = 20
-    # Tamaño total del canvas
-    ancho = COLUMNAS * TAMANO_CELDA  # 800px
-    alto = FILAS * TAMANO_CELDA      # 800px
+
+    TAMANO_CELDA = 35       # Tamaño de cada celda en píxeles
+    FILAS = 20              # Cantidad de filas del tablero
+    COLUMNAS = 20           # Cantidad de columnas del tablero
+    BASE_FILA = 10          # Fila fija de la base central
+    BASE_COLUMNA = 10       # Columna fija de la base central
+    RADIO_CONSTRUCCION = 5  # Distancia máxima desde la base para poder construir
+
+    ancho = COLUMNAS * TAMANO_CELDA  # Ancho total del canvas
+    alto = FILAS * TAMANO_CELDA      # Alto total del canvas
     ventana_juego.geometry(f"{ancho}x{alto}")
 
-    # Canvas donde se dibuja todo el tablero
     canvas = tk.Canvas(ventana_juego, width=ancho, height=alto, bg="#2d2d2d")
     canvas.pack()
 
-    # Posición fija de la base central (centro del mapa)
-    BASE_FILA = 10
-    BASE_COLUMNA = 10
-
-    # Dibuja cada celda del tablero
+    # Dibuja cada celda del tablero según la zona a la que pertenece
     for fila in range(FILAS):
         for col in range(COLUMNAS):
-
-            # Calcula las coordenadas de la celda
             x1 = col * TAMANO_CELDA
             y1 = fila * TAMANO_CELDA
             x2 = x1 + TAMANO_CELDA
             y2 = y1 + TAMANO_CELDA
-            # La celda de la base central tiene color diferente
+
             if fila == BASE_FILA and col == BASE_COLUMNA:
-                color = "#e63946"  # Rojo para la base central
+                color = "#e63946"  # Rojo: base central
+            elif esta_en_zona_construccion(fila, col, BASE_FILA, BASE_COLUMNA, RADIO_CONSTRUCCION):
+                color = "#1d4d3a"  # Verde oscuro: zona de construcción del defensor
+            elif esta_en_zona_despliegue(fila, col, FILAS, COLUMNAS):
+                color = "#4a2f1f"  # Naranja oscuro: zona de despliegue del atacante
             else:
-                # Alterna entre dos tonos de gris para efecto de cuadrícula
-                if (fila + col) % 2 == 0:
-                    color = "#3a3a3a"
-                else:
-                    color = "#2d2d2d"
-            # Dibuja el rectángulo de la celda
-            canvas.create_rectangle( x1, y1, x2, y2,fill=color,outline="#444444"  )#linea de borde entre celdas
-    # Etiqueta en la base central
+                # Zona neutral: alterna dos grises para efecto de cuadrícula
+                color = "#3a3a3a" if (fila + col) % 2 == 0 else "#2d2d2d"
+
+            canvas.create_rectangle(x1, y1, x2, y2, fill=color, outline="#444444")
+
+    # Etiqueta de texto sobre la celda de la base central
     canvas.create_text(
-        BASE_COLUMNA * TAMANO_CELDA + TAMANO_CELDA // 2,  # Centro X de la celda
-        BASE_FILA * TAMANO_CELDA + TAMANO_CELDA // 2,     # Centro Y de la celda
-        text="BASE", fill="#ffffff",font=("Arial", 8, "bold"))
+        BASE_COLUMNA * TAMANO_CELDA + TAMANO_CELDA // 2,
+        BASE_FILA * TAMANO_CELDA + TAMANO_CELDA // 2,
+        text="BASE", fill="#ffffff", font=("Arial", 8, "bold")
+    )
 
 #  UTILIDADES
 ##################################################
