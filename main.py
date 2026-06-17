@@ -26,6 +26,39 @@ class Jugador:
             "victorias_defensor": self.victorias_defensor,
             "victorias_atacante": self.victorias_atacante }
 
+
+
+#  CLASE MURO
+#################################################3
+
+class Muro:
+    """
+    Representa un muro defensivo colocado por el defensor.
+    No ataca ni tiene habilidades — solo bloquea el paso de las
+    unidades y absorbe daño antes de que lleguen a la base.
+    """
+    def __init__(self):
+        self.nombre = "Muro"   # Nombre visible
+        self.costo = 30        # Barato, el defensor puede poner varios
+        self.vida = 150        # Bastante vida para aguantar varios ataques
+        self.activo = True     # True = muro en pie, False = destruido
+
+    def recibir_dano(self, cantidad):
+        """
+        Resta vida al muro cuando una unidad lo ataca.
+        Si la vida llega a 0 el muro queda destruido.
+        Parámetros:
+            cantidad: puntos de daño recibidos
+        """
+        self.vida -= cantidad   # Resta el daño recibido
+        if self.vida <= 0:      # Si se quedó sin vida
+            self.vida = 0       # No puede quedar negativo
+            self.activo = False # Muro destruido, las unidades ya pueden pasar
+
+    def __str__(self):
+        """Representación en texto del muro para debug."""
+        return f"Muro | Vida: {self.vida} | Activo: {self.activo}"
+
 #  CLASE TORRE (base)
 ##############################################################
 
