@@ -679,7 +679,8 @@ def mostrar_juego(root):
     dinero_defensor = [500]       # Dinero inicial del defensor
     base_pos = [None, None]       # Posición [fila, col] de la base, None hasta colocarla
     torres_colocadas = {}         # {(fila, col): objeto Torre}
-    torre_seleccionada = [None]   # Clase de torre elegida en el panel (TorreBasica, etc.)
+    muros_colocados = {} #{(fila, col): objeto muro}
+    elemento_seleccionado = [None] # Puede ser una clase Torre o muro
 
     # Información visual y de costo de cada tipo de torre
     INFO_TORRES = {
@@ -687,6 +688,8 @@ def mostrar_juego(root):
         TorrePesada:  {"nombre": "Torre Pesada", "costo": 200, "color": "#8b3a3a", "simbolo": "P"},
         TorreMagica:  {"nombre": "Torre Mágica", "costo": 150, "color": "#5a4a8b", "simbolo": "M"},
     }
+
+    INFO_MURO = {"nombre": "Muro", "costo": 30, "color": "#362E2E", "símbolo": "M"}
 
     # ---- Contenedor que une el tablero y el panel lado a lado ----
     contenedor = tk.Frame(ventana_juego)
@@ -725,28 +728,41 @@ def mostrar_juego(root):
                            bg="#16213e", fg="#ff6b6b", wraplength=180)
     lbl_estado.pack(pady=(0, 10))
 
-    def seleccionar_torre(clase_torre):
+    def seleccionar_elemento(elemento):
         """
-        Marca qué torre quedó seleccionada en el panel.
-        El próximo clic válido en el tablero colocará esta torre.
-        Parámetros:
-            clase_torre: la clase (TorreBasica, TorrePesada o TorreMagica), sin instanciar
+        Marca que elemento quedó seleccionado en el panel.
+        Puede ser una torre o muro 
+        Próximo clic colocará ese elemento en el tablerp
+            elemento: clase torre o muro 
         """
-        torre_seleccionada[0] = clase_torre
-        info = INFO_TORRES[clase_torre]
-        lbl_seleccion.config(text=f"Seleccionada: {info['nombre']} (${info['costo']})")
+        elemento_seleccionado[0] = elemento # guarda lo seleccionado
+        if elemento == "muro":
+            lbl_seleccion.config(text=f"Seleccionado: Muro (${INFO_MURO['costo']})")
+        else:
+            info = INFO_TORRES[elemento]
+            lbl_seleccion.config(text=f"Seleccionada: {info['nombre']} (${info['costo']})")
         lbl_estado.config(text="")  # Limpia mensajes de error anteriores
 
-    # Crea un botón por cada tipo de torre
+        # Botones de torres
     for clase_torre, info in INFO_TORRES.items():
         tk.Button(
             panel, text=f"{info['nombre']}\n${info['costo']}",
-            command=lambda c=clase_torre: seleccionar_torre(c),  # lambda captura la clase correcta
+            command=lambda c=clase_torre: seleccionar_elemento(c),  # seleccionar_elemento
             font=("Arial", 10), bg=info["color"], fg="#ffffff",
             activebackground="#333333", width=18, height=2, bd=0, cursor="hand2"
         ).pack(pady=4)
 
-    # ---- Dibujo del tablero ----
+    # Separador visual entre torres y muro
+    tk.Label(panel, text="─────────────", bg="#16213e", fg="#444444").pack(pady=4)
+
+    # Botón del muro
+    tk.Button(
+        panel, text=f"Muro\n${INFO_MURO['costo']}",
+        command=lambda: seleccionar_elemento("muro"),
+        font=("Arial", 10), bg=INFO_MURO["color"], fg="#ffffff",
+        activebackground="#333333", width=18, height=2, bd=0, cursor="hand2"
+    ).pack(pady=4)
+  
     def dibujar_celda(fila, col):
         """
         Dibuja o redibuja una sola celda del tablero según su estado:
@@ -769,6 +785,9 @@ def mostrar_juego(root):
             info = INFO_TORRES[type(torre)]  # type() obtiene la clase del objeto
             color = info["color"]
             texto = info["simbolo"]
+        elif (fila, col) in muros_colocados:
+            color = INFO_MURO["color"]  # Gris para los muros
+            texto = "W"                 # W de Wall (muro)
         elif esta_en_zona_construccion(fila, col, CENTRO_FILA, CENTRO_COLUMNA, RADIO_CONSTRUCCION):
             color = "#1d4d3a"  # Verde: zona de construcción
             texto = ""
@@ -817,37 +836,46 @@ def mostrar_juego(root):
             lbl_estado.config(text="")
             return
 
-        # Paso 2: colocar torres (la base ya existe)
-        if torre_seleccionada[0] is None:
-            lbl_estado.config(text="Elegí una torre del panel primero.")
+        # Paso 2: colocar torres o muros (la base ya existe)
+        if elemento_seleccionado[0] is None:
+            lbl_estado.config(text="Elegí una torre o muro del panel primero.")
             return
 
         if (fila, col) == (base_pos[0], base_pos[1]):
             lbl_estado.config(text="No se puede construir sobre la base.")
             return
 
-        if (fila, col) in torres_colocadas:
-            lbl_estado.config(text="Ya hay una torre en esa celda.")
+        if (fila, col) in torres_colocadas or (fila, col) in muros_colocados:
+            lbl_estado.config(text="Ya hay algo en esa celda.")
             return
 
         if not esta_en_zona_construccion(fila, col, CENTRO_FILA, CENTRO_COLUMNA, RADIO_CONSTRUCCION):
             lbl_estado.config(text="Solo podés construir en la zona verde.")
             return
 
-        clase_torre = torre_seleccionada[0]
-        info = INFO_TORRES[clase_torre]
+        # Verifica dinero y coloca el elemento correcto
+        if elemento_seleccionado[0] == "muro":
+            # Colocar un muro
+            if dinero_defensor[0] < INFO_MURO["costo"]:
+                lbl_estado.config(text="No tenés suficiente dinero.")
+                return
+            muros_colocados[(fila, col)] = Muro()       # Instancia el muro
+            dinero_defensor[0] -= INFO_MURO["costo"]    # Descuenta el costo
+        else:
+            # Colocar una torre
+            clase_torre = elemento_seleccionado[0]
+            info = INFO_TORRES[clase_torre]
+            if dinero_defensor[0] < info["costo"]:
+                lbl_estado.config(text="No tenés suficiente dinero.")
+                return
+            torres_colocadas[(fila, col)] = clase_torre()  # Instancia la torre
+            dinero_defensor[0] -= info["costo"]            # Descuenta el costo
 
-        if dinero_defensor[0] < info["costo"]:
-            lbl_estado.config(text="No tenés suficiente dinero.")
-            return
-
-        # Todo válido: coloca la torre, descuenta el dinero y actualiza la pantalla
-        torres_colocadas[(fila, col)] = clase_torre()  # Instancia una torre nueva
-        dinero_defensor[0] -= info["costo"]
+        # Actualiza el dinero y redibuja la celda
         lbl_dinero.config(text=f"Dinero: {dinero_defensor[0]}")
         lbl_estado.config(text="")
         dibujar_celda(fila, col)
-
+        
     canvas.bind("<Button-1>", al_hacer_clic)
 
 
