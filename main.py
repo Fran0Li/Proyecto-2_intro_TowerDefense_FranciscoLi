@@ -762,6 +762,38 @@ def mostrar_juego(root):
         font=("Arial", 10), bg=INFO_MURO["color"], fg="#ffffff",
         activebackground="#333333", width=18, height=2, bd=0, cursor="hand2"
     ).pack(pady=4)
+
+    # Separador antes del botón Listo
+    tk.Label(panel, text="─────────────", bg="#16213e", fg="#444444").pack(pady=(15, 4))
+
+    def terminar_construccion():
+        """
+        Termina la fase de construcción del defensor.
+        Valida que la base haya sido colocada antes de avanzar
+        a la fase de ataque. Si todo está bien, dará paso al
+        atacante (la lógica del atacante la implementará el compañero).
+        """
+        # No se puede terminar sin haber colocado la base
+        if base_pos[0] is None:
+            lbl_estado.config(text="Tenés que colocar la base antes de terminar.")
+            return
+
+        # Muestra mensaje de que la fase terminó
+        # Cuando esté lista la fase de ataque, aquí se llamará a iniciar_fase_ataque()
+        lbl_estado.config(text="Fase de construcción terminada.", fg="#6bff8e")
+        lbl_seleccion.config(text="Esperando al atacante...")
+
+        # Desconecta los clics del tablero para que el defensor no pueda seguir construyendo
+        canvas.unbind("<Button-1>")
+
+    # Botón para terminar la fase de construcción
+    tk.Button(
+        panel, text="LISTO\nTerminar construcción",
+        command=terminar_construccion,
+        font=("Arial", 10, "bold"), bg="#0f3460", fg="#ffffff",
+        activebackground="#1b5a8a", activeforeground="#ffffff",
+        width=18, height=2, bd=0, cursor="hand2"
+    ).pack(pady=8)
   
     def dibujar_celda(fila, col):
         """
@@ -875,7 +907,7 @@ def mostrar_juego(root):
         lbl_dinero.config(text=f"Dinero: {dinero_defensor[0]}")
         lbl_estado.config(text="")
         dibujar_celda(fila, col)
-        
+
     canvas.bind("<Button-1>", al_hacer_clic)
 
 
