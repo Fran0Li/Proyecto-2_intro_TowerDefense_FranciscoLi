@@ -359,6 +359,10 @@ def mostrar_menu(root):
     jugadores_sesion[1] = None
     facciones_sesion[0] = None
     facciones_sesion[1] = None
+    # Guarda el tipo de mapa elegido para la partida actual
+    # "clasico" = con zona de construcción limitada / "libre" = el defensor construye donde quiera
+    mapa_sesion = ["clasico"]  # Valor por defecto si no se elige nada
+    mapa_sesion[0] = "clasico"  # Reinicia el mapa elegido al volver al menú
 
     # Frame principal que ocupa toda la ventana con fondo oscuro
     frame = tk.Frame(root, bg="#1a1a2e")
