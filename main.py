@@ -981,6 +981,19 @@ def mostrar_juego(root):
 
     # ---- Sistema de victorias y rondas ----
 
+    def verificar_fin_ronda():
+        # Comprueba si alguna condición de victoria se cumplió al final de cada turno.
+        # La fase de ataque debe llamar a esta función después de procesar cada turno.
+        if vida_base[0] <= 0:
+            # La base fue destruida: el atacante gana esta ronda
+            registrar_victoria("atacante")
+            return
+
+        unidades_vivas = [u for u in unidades_activas if u.activa]
+        if not unidades_vivas and dinero_atacante[0] < 60:
+            # Sin unidades vivas y sin dinero para desplegar la más barata: el defensor gana
+            registrar_victoria("defensor")
+
     def reiniciar_ronda():
         # Limpia todo el estado del tablero para empezar la siguiente ronda desde cero.
         torres_colocadas.clear()
