@@ -745,6 +745,12 @@ def mostrar_juego(root):
     muros_colocados = {} #{(fila, col): objeto muro}
     elemento_seleccionado = [None] # Puede ser una clase Torre o muro
 
+    # Estado de la fase de ataque (la fase de construcción no los usa todavía;
+    # la fase de ataque los actualizará cada turno)
+    vida_base = [100]        # HP de la base; cuando llega a 0 el atacante gana la ronda
+    unidades_activas = []    # Lista de objetos Unidad del atacante en el tablero
+    dinero_atacante = [300]  # Dinero inicial del atacante para comprar tropas
+
     # Información visual y de costo de cada tipo de torre
     INFO_TORRES = {
         TorreBasica:  {"nombre": "Torre Básica", "costo": 80,  "color": "#3a7d5c", "simbolo": "B"},
@@ -972,6 +978,41 @@ def mostrar_juego(root):
         dibujar_celda(fila, col)
 
     canvas.bind("<Button-1>", al_hacer_clic)
+
+    # ---- Sistema de victorias y rondas ----
+
+    def terminar_partida(ganador):
+        # Incrementa la victoria en el JSON del jugador ganador y muestra la pantalla de resultados.
+        # ganador: "defensor" o "atacante"
+        usuario_ganador = jugadores_sesion[0] if ganador == "defensor" else jugadores_sesion[1]
+        campo_victoria = "victorias_defensor" if ganador == "defensor" else "victorias_atacante"
+
+        # Actualiza el contador en el archivo JSON
+        todos = cargar_jugadores()
+        for j in todos:
+            if j["usuario"].lower() == usuario_ganador["usuario"].lower():
+                j[campo_victoria] += 1
+                break
+        guardar_jugadores(todos)
+
+        # Cierra el tablero y devuelve el menú principal
+        ventana_juego.destroy()
+        root.deiconify()
+
+        # Pantalla de resultados
+        _limpiar(root)
+        frame = tk.Frame(root, bg="#1a1a2e")
+        frame.pack(expand=True, fill="both")
+
+        tk.Label(frame, text="¡Partida terminada!",
+                 font=("Arial", 26, "bold"), bg="#1a1a2e", fg="#e0e0e0").pack(pady=(80, 10))
+        tk.Label(frame,
+                 text=f"Ganador: {usuario_ganador['usuario']} ({ganador})",
+                 font=("Arial", 18), bg="#1a1a2e", fg="#6bff8e").pack(pady=(0, 10))
+        tk.Label(frame,
+                 text=f"Marcador — Defensor: {rondas_sesion['defensor']}  |  Atacante: {rondas_sesion['atacante']}",
+                 font=("Arial", 13), bg="#1a1a2e", fg="#e0e0e0").pack(pady=(0, 40))
+        _boton(frame, "Volver al menú", lambda: mostrar_menu(root))
 
 
 #  UTILIDADES
