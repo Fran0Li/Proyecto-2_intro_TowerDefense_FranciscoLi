@@ -981,6 +981,43 @@ def mostrar_juego(root):
 
     # ---- Sistema de victorias y rondas ----
 
+    def reiniciar_ronda():
+        # Limpia todo el estado del tablero para empezar la siguiente ronda desde cero.
+        torres_colocadas.clear()
+        muros_colocados.clear()
+        base_pos[0] = None
+        base_pos[1] = None
+        dinero_defensor[0] = 500
+        elemento_seleccionado[0] = None
+        vida_base[0] = 100
+        unidades_activas.clear()
+        dinero_atacante[0] = 300
+
+        # Actualiza las etiquetas del panel lateral
+        lbl_dinero.config(text=f"Dinero: {dinero_defensor[0]}")
+        lbl_seleccion.config(text="Elegí una torre")
+        lbl_estado.config(text="")
+
+        # Redibuja todo el tablero
+        for f in range(FILAS):
+            for c in range(COLUMNAS):
+                dibujar_celda(f, c)
+
+        # Reconecta los clics para la nueva fase de construcción
+        canvas.bind("<Button-1>", al_hacer_clic)
+
+    def registrar_victoria(ganador):
+        # Incrementa el contador de rondas del ganador y decide si la partida termina.
+        # ganador: "defensor" o "atacante"
+        rondas_sesion[ganador] += 1
+
+        if rondas_sesion[ganador] >= 3:
+            # El jugador ganó las 3 rondas necesarias: termina la partida
+            terminar_partida(ganador)
+        else:
+            # Todavía no hay ganador de la partida: reinicia para la siguiente ronda
+            reiniciar_ronda()
+
     def terminar_partida(ganador):
         # Incrementa la victoria en el JSON del jugador ganador y muestra la pantalla de resultados.
         # ganador: "defensor" o "atacante"
