@@ -359,10 +359,7 @@ def mostrar_menu(root):
     jugadores_sesion[1] = None
     facciones_sesion[0] = None
     facciones_sesion[1] = None
-    # Guarda el tipo de mapa elegido para la partida actual
-    # "clasico" = con zona de construcción limitada / "libre" = el defensor construye donde quiera
-    mapa_sesion = ["clasico"]  # Valor por defecto si no se elige nada
-    mapa_sesion[0] = "clasico"  # Reinicia el mapa elegido al volver al menú
+    mapa_sesion[0] = "clasico"  # Reinicia el mapa al volver al menú
 
     # Frame principal que ocupa toda la ventana con fondo oscuro
     frame = tk.Frame(root, bg="#1a1a2e")
@@ -387,6 +384,7 @@ def mostrar_menu(root):
 jugadores_sesion = [None, None]  # [jugador1, jugador2]
 # Guarda la facción elegida por cada jugador en la sesión actual
 facciones_sesion = [None, None]  # [faccion_jugador1, faccion_jugador2]
+mapa_sesion = ["clasico"]  # "clasico" o "libre" según el mapa elegido
 
 def mostrar_login(root, numero_jugador=1):
     
@@ -543,8 +541,8 @@ def mostrar_facciones(root, numero_jugador=1):
             # Si es jugador 1, pasa a jugador 2
             mostrar_facciones(root, 2)
         else:
-            # Ambos eligieron, abre la ventana del juego
-            mostrar_juego(root)
+            # Ambos eligieron, pasa a la selección de mapa
+            mostrar_seleccion_mapa(root)
 
     # Crea un botón por cada facción
     for nombre, _, descripcion in facciones:
@@ -554,6 +552,59 @@ def mostrar_facciones(root, numero_jugador=1):
         tk.Button(btn_frame,text=f"{nombre}\n{descripcion}",command=lambda f=nombre: elegir_faccion(f),font=("Arial", 12),bg=colores[nombre], fg="#ffffff",activebackground="#333333",width=30,height=3,bd=0,cursor="hand2").pack()#color unico por faccion
 
     _boton(frame, "Volver al menú", lambda: mostrar_menu(root))
+
+
+#  VENTANA SELECCIÓN DE MAPA
+########################################
+
+def mostrar_seleccion_mapa(root):
+    # Muestra la pantalla de selección de mapa antes de empezar la partida.
+    # Clásico: zona de construcción limitada al centro. Libre: el defensor construye en cualquier celda interior.
+    _limpiar(root)
+
+    frame = tk.Frame(root, bg="#1a1a2e")
+    frame.pack(expand=True, fill="both")
+
+    tk.Label(
+        frame,
+        text="Elige el mapa",
+        font=("Arial", 22, "bold"),
+        bg="#1a1a2e",
+        fg="#e0e0e0"
+    ).pack(pady=(80, 30))
+
+    def elegir_mapa(tipo):
+        # Guarda el tipo de mapa elegido y abre la ventana del juego
+        mapa_sesion[0] = tipo
+        mostrar_juego(root)
+
+    tk.Button(
+        frame,
+        text="Mapa Clásico",
+        command=lambda: elegir_mapa("clasico"),
+        font=("Arial", 14),
+        bg="#1d4d3a",
+        fg="#ffffff",
+        activebackground="#333333",
+        width=20,
+        height=2,
+        bd=0,
+        cursor="hand2"
+    ).pack(pady=10)
+
+    tk.Button(
+        frame,
+        text="Mapa Libre",
+        command=lambda: elegir_mapa("libre"),
+        font=("Arial", 14),
+        bg="#4a3728",
+        fg="#ffffff",
+        activebackground="#333333",
+        width=20,
+        height=2,
+        bd=0,
+        cursor="hand2"
+    ).pack(pady=10)
 
 
 #  VENTANA RANKING
@@ -612,18 +663,23 @@ def mostrar_ranking(root):
 ###################################################
 
 
-def esta_en_zona_construccion(fila, col, centro_fila, centro_columna, radio):
+def esta_en_zona_construccion(fila, col, centro_fila, centro_columna, radio, filas=20, columnas=20):
     """
-    Determina si una celda está dentro del área donde el defensor
-    puede construir. Incluye la celda central — ahí también puede
-    ir la base, ya que su posición no es fija sino elegida por el jugador.
-    Usa distancia Manhattan desde el centro del área.
+    Determina si una celda está dentro del área donde el defensor puede construir.
+    En mapa clásico usa distancia Manhattan desde el centro del área.
+    En mapa libre permite construir en cualquier celda que no sea borde del tablero.
         fila, col:                   celda a evaluar
-        centro_fila, centro_columna: centro del área de construcción
-        radio:                       distancia máxima permitida desde el centro
-    Retorna: True si la celda está dentro del área permitida, False si no
+        centro_fila, centro_columna: centro del área (solo mapa clásico)
+        radio:                       distancia máxima desde el centro (solo mapa clásico)
+        filas, columnas:             dimensiones del tablero para detectar bordes (solo mapa libre)
+    Retorna: True si la celda está disponible para construir, False si no
     """
-    distancia = abs(fila - centro_fila) + abs(col - centro_columna)  # Distancia Manhattan
+    if mapa_sesion[0] == "libre":
+        # En mapa libre se puede construir en cualquier celda que no sea borde del tablero
+        es_borde = fila == 0 or fila == filas - 1 or col == 0 or col == columnas - 1
+        return not es_borde
+    # En mapa clásico usa distancia Manhattan desde el centro del área
+    distancia = abs(fila - centro_fila) + abs(col - centro_columna)
     return distancia <= radio
 
 
@@ -824,8 +880,8 @@ def mostrar_juego(root):
         elif (fila, col) in muros_colocados:
             color = INFO_MURO["color"]  # Gris para los muros
             texto = "W"                 # W de Wall (muro)
-        elif esta_en_zona_construccion(fila, col, CENTRO_FILA, CENTRO_COLUMNA, RADIO_CONSTRUCCION):
-            color = "#1d4d3a"  # Verde: zona de construcción
+        elif esta_en_zona_construccion(fila, col, CENTRO_FILA, CENTRO_COLUMNA, RADIO_CONSTRUCCION) and mapa_sesion[0] == "clasico":
+            color = "#1d4d3a"  # Verde: zona de construcción (solo en mapa clásico)
             texto = ""
         elif esta_en_zona_despliegue(fila, col, FILAS, COLUMNAS):
             color = "#4a2f1f"  # Naranja: zona de despliegue
