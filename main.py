@@ -360,6 +360,8 @@ def mostrar_menu(root):
     facciones_sesion[0] = None
     facciones_sesion[1] = None
     mapa_sesion[0] = "clasico"  # Reinicia el mapa al volver al menú
+    rondas_sesion["defensor"] = 0  # Reinicia el marcador de rondas al volver al menú
+    rondas_sesion["atacante"] = 0
 
     # Frame principal que ocupa toda la ventana con fondo oscuro
     frame = tk.Frame(root, bg="#1a1a2e")
@@ -385,6 +387,7 @@ jugadores_sesion = [None, None]  # [jugador1, jugador2]
 # Guarda la facción elegida por cada jugador en la sesión actual
 facciones_sesion = [None, None]  # [faccion_jugador1, faccion_jugador2]
 mapa_sesion = ["clasico"]  # "clasico" o "libre" según el mapa elegido
+rondas_sesion = {"defensor": 0, "atacante": 0}  # Rondas ganadas en la partida actual
 
 def mostrar_login(root, numero_jugador=1):
     
