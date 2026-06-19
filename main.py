@@ -254,7 +254,7 @@ class Tanque(Unidad):
         objetivo.recibir_dano(self.dano)  # Realiza su ataque normal
         
         # Recupera 40 puntos de vida (Escudo/Curación) sin pasarse de su máximo de 250
-        self.vida = min(self.vida_maxima, self.vida )
+        self.vida = min(self.vida_maxima, self.vida + 40 )
 
 
 class UnidadRapida(Unidad):
