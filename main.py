@@ -846,25 +846,160 @@ def mostrar_juego(root):
     # Separador antes del botón Listo
     tk.Label(panel, text="─────────────", bg="#16213e", fg="#444444").pack(pady=(15, 4))
 
+    def fase_ataque():
+        """
+        Inicia la fase de ataque después de que el defensor terminó de construir.
+        Reutiliza el mismo canvas (tablero ya armado) pero destruye y reconstruye
+        el panel lateral para mostrar las opciones del atacante: dinero disponible,
+        botones de selección de unidades y botón para confirmar el despliegue.
+        El atacante elige una unidad del panel y hace clic en el borde del tablero
+        para desplegarla; al confirmar, las unidades pasan a unidades_activas y
+        comienza el ciclo de combate automático.
+        """
+        ventana_juego.title("Asedio y defensa — Fase de ataque")
+
+        # Destruye todos los widgets del panel del defensor; el canvas no se toca
+        # para que torres, muros y base queden visibles durante el despliegue.
+        for widget in panel.winfo_children():
+            widget.destroy()
+
+        # ── Widgets informativos del panel del atacante ──────────────────────
+        tk.Label(panel, text="Fase de Ataque", font=("Arial", 12, "bold"),
+                 bg="#16213e", fg="#e0e0e0").pack(pady=(15, 5))
+
+        lbl_dinero_atac = tk.Label(panel, text=f"Dinero: {dinero_atacante[0]}",
+                                    font=("Arial", 12, "bold"), bg="#16213e", fg="#6bff8e")
+        lbl_dinero_atac.pack(pady=(0, 10))
+
+        lbl_seleccion_atac = tk.Label(panel, text="Elegí una unidad",
+                                       font=("Arial", 9), bg="#16213e", fg="#888888", wraplength=180)
+        lbl_seleccion_atac.pack(pady=(0, 10))
+
+        lbl_estado_atac = tk.Label(panel, text="", font=("Arial", 9),
+                                    bg="#16213e", fg="#ff6b6b", wraplength=180)
+        lbl_estado_atac.pack(pady=(0, 10))
+
+        def seleccionar_unidad(elemento):
+            """
+            Guarda la unidad seleccionada en el panel.
+            El próximo clic en el borde del tablero la desplegará.
+                elemento: clase Unidad seleccionada (SoldadoBasico, Tanque, UnidadRapida)
+            """
+            unidad_seleccionada[0] = elemento
+            info = INFO_UNIDADES[elemento]
+            lbl_seleccion_atac.config(text=f"Seleccionada: {info['nombre']} (${info['costo']})")
+            lbl_estado_atac.config(text="")
+
+        # Un botón por cada tipo de unidad definido en INFO_UNIDADES;
+        # usar lambda c=clase_unidad captura la clase correcta en cada iteración.
+        for clase_unidad, info in INFO_UNIDADES.items():
+            tk.Button(
+                panel, text=f"{info['nombre']}\n${info['costo']}",
+                command=lambda c=clase_unidad: seleccionar_unidad(c),
+                font=("Arial", 10), bg=info["color"], fg="#ffffff",
+                activebackground="#333333", width=18, height=2, bd=0, cursor="hand2"
+            ).pack(pady=4)
+
+        tk.Label(panel, text="─────────────", bg="#16213e", fg="#444444").pack(pady=(15, 4))
+
+        def terminar_despliegue():
+            """
+            Termina la fase de despliegue del atacante.
+            Valida que se haya colocado al menos una unidad.
+            Transfiere las unidades colocadas a unidades_activas y lanza el ciclo de combate.
+            """
+            if not unidades_colocadas:
+                lbl_estado_atac.config(text="Tenés que desplegar al menos una unidad.")
+                return
+
+            # Mueve cada unidad de unidades_colocadas (dict de despliegue)
+            # a unidades_activas (lista de combate) e inyecta su posición inicial
+            # como atributos fila/col para que el motor de combate pueda moverlas.
+            for pos, unidad in unidades_colocadas.items():
+                unidad.fila = pos[0]
+                unidad.col  = pos[1]
+                unidades_activas.append(unidad)
+
+            lbl_estado_atac.config(text="¡Comienza el combate!", fg="#6bff8e")
+            lbl_seleccion_atac.config(text="")
+            canvas.unbind("<Button-1>")   # Congela el tablero; el combate es automático
+
+            # Entrega el control al motor de combate
+            ciclo_combate()
+
+        tk.Button(
+            panel, text="LISTO\nIniciar ataque",
+            command=terminar_despliegue,
+            font=("Arial", 10, "bold"), bg="#0f3460", fg="#ffffff",
+            activebackground="#1b5a8a", activeforeground="#ffffff",
+            width=18, height=2, bd=0, cursor="hand2"
+        ).pack(pady=8)
+
+        def al_hacer_clic_ataque(event):
+            """
+            Maneja el clic del atacante sobre el tablero durante el despliegue.
+            Solo acepta celdas del borde del tablero (zona de despliegue).
+            Valida que haya unidad seleccionada, celda libre y dinero suficiente.
+                event: evento de clic de Tkinter
+            """
+            col = event.x // TAMANO_CELDA
+            fila = event.y // TAMANO_CELDA
+
+            if not (0 <= fila < FILAS and 0 <= col < COLUMNAS):
+                return  # Clic fuera del tablero
+
+            if unidad_seleccionada[0] is None:
+                lbl_estado_atac.config(text="Elegí una unidad del panel primero.")
+                return
+
+            if not esta_en_zona_despliegue(fila, col, FILAS, COLUMNAS):
+                lbl_estado_atac.config(text="Solo podés desplegar en el borde del tablero.")
+                return
+
+            if (fila, col) in unidades_colocadas:
+                lbl_estado_atac.config(text="Ya hay una unidad en esa celda.")
+                return
+
+            info = INFO_UNIDADES[unidad_seleccionada[0]]
+            if dinero_atacante[0] < info["costo"]:
+                lbl_estado_atac.config(text="No tenés suficiente dinero.")
+                return
+
+            # Registra la unidad: instancia la clase, la guarda en unidades_colocadas
+            # y descuenta el costo; luego redibuja la celda para mostrarla en el tablero.
+            unidades_colocadas[(fila, col)] = unidad_seleccionada[0]()
+            dinero_atacante[0] -= info["costo"]
+
+            lbl_dinero_atac.config(text=f"Dinero: {dinero_atacante[0]}")
+            lbl_estado_atac.config(text="")
+            dibujar_celda(fila, col)
+
+        # Desconecta el handler del defensor y conecta el del atacante;
+        # a partir de aquí los clics en el canvas despliegan unidades, no torres.
+        canvas.unbind("<Button-1>")
+        canvas.bind("<Button-1>", al_hacer_clic_ataque)
+
     def terminar_construccion():
         """
         Termina la fase de construcción del defensor.
-        Valida que la base haya sido colocada antes de avanzar
-        a la fase de ataque. Si todo está bien, dará paso al
-        atacante (la lógica del atacante la implementará el compañero).
+        Valida que la base haya sido colocada; si no hay base, bloquea el avance.
+        Si todo está en orden, congela el tablero, muestra el mensaje de transición
+        y, tras 1 segundo, lanza automáticamente la fase de ataque.
         """
         # No se puede terminar sin haber colocado la base
         if base_pos[0] is None:
             lbl_estado.config(text="Tenés que colocar la base antes de terminar.")
             return
 
-        # Muestra mensaje de que la fase terminó
-        # Cuando esté lista la fase de ataque, aquí se llamará a iniciar_fase_ataque()
+        # Informa al defensor que su turno terminó y congela el tablero
         lbl_estado.config(text="Fase de construcción terminada.", fg="#6bff8e")
         lbl_seleccion.config(text="Esperando al atacante...")
+        canvas.unbind("<Button-1>")   # Evita que el defensor siga colocando torres
 
-        # Desconecta los clics del tablero para que el defensor no pueda seguir construyendo
-        canvas.unbind("<Button-1>")
+        # Usa after() para que Tkinter renderice el mensaje antes de cambiar el panel;
+        # llamar a fase_ataque() directamente destruiría los widgets antes de que
+        # el usuario pudiera ver la confirmación.
+        ventana_juego.after(1000, fase_ataque)
 
     # Botón para terminar la fase de construcción
     tk.Button(
