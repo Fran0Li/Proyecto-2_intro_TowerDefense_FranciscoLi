@@ -751,6 +751,7 @@ def mostrar_juego(root):
     unidades_activas = []    # Lista de objetos Unidad del atacante en el tablero
     dinero_atacante = [300]  # Dinero inicial del atacante para comprar tropas
     turno_combate   = [0]    # Contador de turnos para activar habilidades cada 3 turnos
+    lbl_vida_base   = [None] # Referencia a la etiqueta de HP de la base (se crea en fase_ataque)
 
     # Información visual y de costo de cada tipo de torre
     INFO_TORRES = {
@@ -879,6 +880,18 @@ def mostrar_juego(root):
         lbl_estado_atac = tk.Label(panel, text="", font=("Arial", 9),
                                     bg="#16213e", fg="#ff6b6b", wraplength=180)
         lbl_estado_atac.pack(pady=(0, 10))
+
+        # Etiqueta que muestra la vida actual de la base durante el combate;
+        # se guarda en la lista compartida para que ciclo_combate() pueda actualizarla.
+        lbl_vida_base[0] = tk.Label(panel, text=f"Base: {vida_base[0]} HP",
+                                     font=("Arial", 11, "bold"), bg="#16213e", fg="#e63946")
+        lbl_vida_base[0].pack(pady=(0, 5))
+
+        # Marcador de rondas actual
+        lbl_marcador = tk.Label(panel,
+                                 text=f"Rondas — Def: {rondas_sesion['defensor']}  Atac: {rondas_sesion['atacante']}",
+                                 font=("Arial", 9), bg="#16213e", fg="#888888")
+        lbl_marcador.pack(pady=(0, 10))
 
         def seleccionar_unidad(elemento):
             """
@@ -1027,7 +1040,7 @@ def mostrar_juego(root):
 
         if fila == base_pos[0] and col == base_pos[1]:
             color = "#e63946"  # Rojo: base
-            texto = "BASE"
+            texto = f"BASE\n{vida_base[0]}HP"  # Muestra la vida actual de la base
         elif (fila, col) in torres_colocadas:
             torre = torres_colocadas[(fila, col)]
             info = INFO_TORRES[type(torre)]  # type() obtiene la clase del objeto
@@ -1314,7 +1327,11 @@ def mostrar_juego(root):
         # 8. Verifica si la ronda terminó
         verificar_fin_ronda()
 
-        # 9. Si la ronda sigue activa, programa el siguiente turno
+        # 9. Actualiza la etiqueta de vida de la base en el panel
+        if lbl_vida_base[0]:
+            lbl_vida_base[0].config(text=f"Base: {vida_base[0]} HP")
+
+        # 10. Si la ronda sigue activa, programa el siguiente turno
         unidades_vivas = [u for u in unidades_activas if u.activa]
         if vida_base[0] > 0 and unidades_vivas:
             ventana_juego.after(800, ciclo_combate)
