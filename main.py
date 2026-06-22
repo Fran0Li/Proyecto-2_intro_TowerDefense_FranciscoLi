@@ -750,6 +750,7 @@ def mostrar_juego(root):
     vida_base = [100]        # HP de la base; cuando llega a 0 el atacante gana la ronda
     unidades_activas = []    # Lista de objetos Unidad del atacante en el tablero
     dinero_atacante = [300]  # Dinero inicial del atacante para comprar tropas
+    turno_combate   = [0]    # Contador de turnos para activar habilidades cada 3 turnos
 
     # Información visual y de costo de cada tipo de torre
     INFO_TORRES = {
@@ -762,9 +763,9 @@ def mostrar_juego(root):
 
     # Información visual y de costo de cada tipo de unidad (atacante)
     INFO_UNIDADES = {
-        SoldadoBasico: {"nombre": "Soldado Básico", "costo": 60,  "color": "#7a5c2e"},
-        Tanque:        {"nombre": "Tanque",          "costo": 150, "color": "#4a4a4a"},
-        UnidadRapida:  {"nombre": "Unidad Rápida",   "costo": 90,  "color": "#2e5c7a"},
+        SoldadoBasico: {"nombre": "Soldado Básico", "costo": 60,  "color": "#7a5c2e", "simbolo": "S"},
+        Tanque:        {"nombre": "Tanque",          "costo": 150, "color": "#4a4a4a", "simbolo": "T"},
+        UnidadRapida:  {"nombre": "Unidad Rápida",   "costo": 90,  "color": "#2e5c7a", "simbolo": "R"},
     }
 
     # Estado de la fase de ataque
@@ -1038,6 +1039,12 @@ def mostrar_juego(root):
         elif esta_en_zona_construccion(fila, col, CENTRO_FILA, CENTRO_COLUMNA, RADIO_CONSTRUCCION) and mapa_sesion[0] == "clasico":
             color = "#1d4d3a"  # Verde: zona de construcción (solo en mapa clásico)
             texto = ""
+        elif any(u.fila == fila and u.col == col for u in unidades_activas if u.activa):
+            # Hay una unidad activa en esta celda — la muestra con su símbolo
+            unidad = next(u for u in unidades_activas if u.activa and u.fila == fila and u.col == col)
+            info = INFO_UNIDADES[type(unidad)]
+            color = info["color"]
+            texto = info["simbolo"]
         elif esta_en_zona_despliegue(fila, col, FILAS, COLUMNAS):
             color = "#4a2f1f"  # Naranja: zona de despliegue
             texto = ""
@@ -1124,6 +1131,193 @@ def mostrar_juego(root):
         dibujar_celda(fila, col)
 
     canvas.bind("<Button-1>", al_hacer_clic)
+
+    # ---- Ciclo de combate ----
+
+    def mover_hacia_base(unidad):
+        """
+        Mueve la unidad un paso hacia la base central usando distancia Manhattan.
+        Primero intenta moverse en la dirección con mayor distancia a la base.
+        Si la celda destino está ocupada por una torre o muro, ataca en lugar de moverse.
+            unidad: objeto Unidad que se va a mover
+        """
+        if not unidad.activa or getattr(unidad, "congelada", False):
+            return  # No se mueve si está eliminada o congelada
+
+        fila_base = base_pos[0]
+        col_base  = base_pos[1]
+
+        df = fila_base - unidad.fila  # Diferencia de filas hacia la base
+        dc = col_base  - unidad.col   # Diferencia de columnas hacia la base
+
+        # Calcula los pasos posibles según la velocidad de la unidad
+        pasos = unidad.velocidad
+        for _ in range(pasos):
+            if not unidad.activa:
+                break
+
+            fila_base = base_pos[0]
+            col_base  = base_pos[1]
+            df = fila_base - unidad.fila
+            dc = col_base  - unidad.col
+
+            # Si llegó a la base, la ataca directamente
+            if df == 0 and dc == 0:
+                vida_base[0] -= unidad.dano
+                break
+
+            # Elige la dirección con mayor distancia primero
+            if abs(df) >= abs(dc):
+                nueva_fila = unidad.fila + (1 if df > 0 else -1)
+                nueva_col  = unidad.col
+            else:
+                nueva_fila = unidad.fila
+                nueva_col  = unidad.col + (1 if dc > 0 else -1)
+
+            # Verifica si la celda destino está ocupada
+            if (nueva_fila, nueva_col) in torres_colocadas:
+                # Ataca la torre en lugar de moverse
+                torre = torres_colocadas[(nueva_fila, nueva_col)]
+                unidad.atacar(torre)
+                if not torre.activa:
+                    # Torre destruida: la elimina del tablero
+                    del torres_colocadas[(nueva_fila, nueva_col)]
+                    dibujar_celda(nueva_fila, nueva_col)
+                break
+            elif (nueva_fila, nueva_col) in muros_colocados:
+                # Ataca el muro en lugar de moverse
+                muro = muros_colocados[(nueva_fila, nueva_col)]
+                unidad.atacar(muro)
+                if not muro.activo:
+                    del muros_colocados[(nueva_fila, nueva_col)]
+                    dibujar_celda(nueva_fila, nueva_col)
+                break
+            elif nueva_fila == fila_base and nueva_col == col_base:
+                # Llegó a la base: la ataca
+                vida_base[0] -= unidad.dano
+                break
+            else:
+                # Celda libre: se mueve
+                dibujar_celda(unidad.fila, unidad.col)  # Borra la celda anterior
+                unidad.fila = nueva_fila
+                unidad.col  = nueva_col
+                dibujar_celda(unidad.fila, unidad.col)  # Dibuja en la nueva posición
+
+    def buscar_torre_en_rango(torre, fila_torre, col_torre):
+        """
+        Busca la primera unidad activa dentro del alcance de la torre.
+        Usa distancia Manhattan igual que el método esta_en_alcance de Torre.
+            torre:               objeto Torre que busca un objetivo
+            fila_torre, col_torre: posición de la torre en el tablero
+        Retorna: objeto Unidad si encontró una en rango, None si no hay ninguna
+        """
+        for unidad in unidades_activas:
+            if unidad.activa and torre.esta_en_alcance(fila_torre, col_torre, unidad.fila, unidad.col):
+                return unidad
+        return None  # No hay unidades en rango
+
+    def turno_habilidades():
+        """
+        Activa las habilidades especiales de torres y unidades.
+        Se llama desde ciclo_combate cada 3 turnos para simular
+        que las habilidades no se activan en cada tick sino con cierta frecuencia.
+        """
+        # Habilidades de torres
+        for (fila_t, col_t), torre in list(torres_colocadas.items()):
+            if not torre.activa:
+                continue
+            if isinstance(torre, TorrePesada):
+                # Daño en área: busca todas las unidades en rango
+                unidades_en_area = [
+                    u for u in unidades_activas
+                    if u.activa and torre.esta_en_alcance(fila_t, col_t, u.fila, u.col)
+                ]
+                if unidades_en_area:
+                    torre.activar_habilidad(unidades_en_area)
+            else:
+                # TorreBasica y TorreMagica: apuntan a una sola unidad
+                objetivo = buscar_torre_en_rango(torre, fila_t, col_t)
+                if objetivo:
+                    torre.activar_habilidad(objetivo)
+
+        # Habilidades de unidades
+        for unidad in list(unidades_activas):
+            if not unidad.activa:
+                continue
+            fila_base_actual = base_pos[0]
+            col_base_actual  = base_pos[1]
+            # La unidad usa su habilidad contra la torre más cercana o la base
+            objetivo_cercano = None
+            for (fila_t, col_t), torre in torres_colocadas.items():
+                if torre.activa and unidad.esta_en_alcance(unidad.fila, unidad.col, fila_t, col_t):
+                    objetivo_cercano = torre
+                    break
+            if objetivo_cercano:
+                unidad.activar_habilidad(objetivo_cercano)
+            elif abs(unidad.fila - fila_base_actual) + abs(unidad.col - col_base_actual) <= 1:
+                # La unidad está adyacente a la base: crea un objeto anónimo con
+                # recibir_dano() para que activar_habilidad() pueda dañarla sin
+                # necesitar una clase Base formal.
+                unidad.activar_habilidad(type('Base', (), {'recibir_dano': lambda _, d: vida_base.__setitem__(0, vida_base[0] - d)})())
+
+    def ciclo_combate():
+        """
+        Loop principal del combate en tiempo real usando after() de Tkinter.
+        Cada 800ms ejecuta un turno completo:
+            1. Mueve cada unidad activa hacia la base
+            2. Cada torre ataca la unidad más cercana en su rango
+            3. Descongela unidades cuyo contador llegó a cero
+            4. Elimina del tablero torres y unidades destruidas
+            5. Verifica si la ronda terminó
+        Las habilidades especiales se activan cada 3 turnos (cada 2400ms).
+        """
+        turno_actual = turno_combate[0]
+
+        # 1. Mover todas las unidades activas
+        for unidad in list(unidades_activas):
+            if unidad.activa:
+                mover_hacia_base(unidad)
+
+        # 2. Torres atacan a la unidad más cercana en rango
+        for (fila_t, col_t), torre in list(torres_colocadas.items()):
+            if torre.activa:
+                objetivo = buscar_torre_en_rango(torre, fila_t, col_t)
+                if objetivo:
+                    torre.atacar(objetivo)
+
+        # 3. Descongelar unidades cuyo tiempo terminó
+        for unidad in unidades_activas:
+            if getattr(unidad, "congelada", False):
+                unidad.turnos_congelada -= 1
+                if unidad.turnos_congelada <= 0:
+                    unidad.congelada = False  # La unidad puede moverse de nuevo
+
+        # 4. Cada 3 turnos activa las habilidades especiales
+        if turno_actual % 3 == 0:
+            turno_habilidades()
+
+        # 5. Elimina unidades destruidas del tablero
+        for unidad in list(unidades_activas):
+            if not unidad.activa:
+                dibujar_celda(unidad.fila, unidad.col)  # Limpia su celda
+                unidades_activas.remove(unidad)
+
+        # 6. Elimina torres destruidas del tablero
+        for pos, torre in list(torres_colocadas.items()):
+            if not torre.activa:
+                del torres_colocadas[pos]
+                dibujar_celda(pos[0], pos[1])
+
+        # 7. Actualiza el contador de turno
+        turno_combate[0] += 1
+
+        # 8. Verifica si la ronda terminó
+        verificar_fin_ronda()
+
+        # 9. Si la ronda sigue activa, programa el siguiente turno
+        unidades_vivas = [u for u in unidades_activas if u.activa]
+        if vida_base[0] > 0 and unidades_vivas:
+            ventana_juego.after(800, ciclo_combate)
 
     # ---- Sistema de victorias y rondas ----
 
