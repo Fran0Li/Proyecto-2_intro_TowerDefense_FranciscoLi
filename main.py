@@ -750,15 +750,30 @@ def mostrar_juego(root):
     vida_base = [100]        # HP de la base; cuando llega a 0 el atacante gana la ronda
     unidades_activas = []    # Lista de objetos Unidad del atacante en el tablero
     dinero_atacante = [300]  # Dinero inicial del atacante para comprar tropas
+    turno_combate   = [0]    # Contador de turnos para activar habilidades cada 3 turnos
+    lbl_vida_base   = [None] # Referencia a la etiqueta de HP de la base (se crea en fase_ataque)
 
     # Información visual y de costo de cada tipo de torre
+    # El campo "alcance" es la distancia Manhattan máxima a la que la torre puede atacar.
+    # Se usa tanto en buscar_torre_en_rango() como en el preview visual de construcción.
     INFO_TORRES = {
-        TorreBasica:  {"nombre": "Torre Básica", "costo": 80,  "color": "#3a7d5c", "simbolo": "B"},
-        TorrePesada:  {"nombre": "Torre Pesada", "costo": 200, "color": "#8b3a3a", "simbolo": "P"},
-        TorreMagica:  {"nombre": "Torre Mágica", "costo": 150, "color": "#5a4a8b", "simbolo": "M"},
+        TorreBasica:  {"nombre": "Torre Básica", "costo": 80,  "color": "#3a7d5c", "simbolo": "B", "alcance": 3},
+        TorrePesada:  {"nombre": "Torre Pesada", "costo": 200, "color": "#8b3a3a", "simbolo": "P", "alcance": 2},
+        TorreMagica:  {"nombre": "Torre Mágica", "costo": 150, "color": "#5a4a8b", "simbolo": "M", "alcance": 4},
     }
 
     INFO_MURO = {"nombre": "Muro", "costo": 30, "color": "#362E2E", "símbolo": "M"}
+
+    # Información visual y de costo de cada tipo de unidad (atacante)
+    INFO_UNIDADES = {
+        SoldadoBasico: {"nombre": "Soldado Básico", "costo": 60,  "color": "#7a5c2e", "simbolo": "S"},
+        Tanque:        {"nombre": "Tanque",          "costo": 150, "color": "#4a4a4a", "simbolo": "T"},
+        UnidadRapida:  {"nombre": "Unidad Rápida",   "costo": 90,  "color": "#2e5c7a", "simbolo": "R"},
+    }
+
+    # Estado de la fase de ataque
+    unidad_seleccionada = [None]      # Unidad seleccionada en el panel
+    unidades_colocadas = {}           # {(fila, col): objeto Unidad} desplegadas en el borde
 
     # ---- Contenedor que une el tablero y el panel lado a lado ----
     contenedor = tk.Frame(ventana_juego)
@@ -799,18 +814,70 @@ def mostrar_juego(root):
 
     def seleccionar_elemento(elemento):
         """
-        Marca que elemento quedó seleccionado en el panel.
-        Puede ser una torre o muro 
-        Próximo clic colocará ese elemento en el tablerp
-            elemento: clase torre o muro 
+        Marca qué elemento quedó seleccionado en el panel.
+        Si es una torre, activa el preview de alcance al mover el mouse sobre el tablero.
+            elemento: clase Torre o "muro"
         """
-        elemento_seleccionado[0] = elemento # guarda lo seleccionado
+        elemento_seleccionado[0] = elemento
+
         if elemento == "muro":
             lbl_seleccion.config(text=f"Seleccionado: Muro (${INFO_MURO['costo']})")
+            # Los muros no tienen alcance que mostrar; se quita el binding y cualquier overlay
+            canvas.unbind("<Motion>")
+            canvas.delete("preview_alcance")
         else:
-            info = INFO_TORRES[elemento]
+            info    = INFO_TORRES[elemento]
+            alcance = info["alcance"]
             lbl_seleccion.config(text=f"Seleccionada: {info['nombre']} (${info['costo']})")
-        lbl_estado.config(text="")  # Limpia mensajes de error anteriores
+
+            def mostrar_alcance(event):
+                """
+                Al mover el mouse borra el overlay anterior y dibuja uno nuevo con todas
+                las celdas dentro del alcance Manhattan de la torre seleccionada.
+                Se usa stipple="gray25" para simular transparencia (Tkinter no soporta alpha).
+                """
+                canvas.delete("preview_alcance")  # Borra el preview del frame anterior
+
+                col_hover  = event.x // TAMANO_CELDA
+                fila_hover = event.y // TAMANO_CELDA
+
+                # Si el cursor está fuera del tablero no hay nada que dibujar
+                if not (0 <= fila_hover < FILAS and 0 <= col_hover < COLUMNAS):
+                    return
+
+                # Recorre el cuadrado delimitador y filtra las celdas dentro del diamante
+                for df in range(-alcance, alcance + 1):
+                    for dc in range(-alcance, alcance + 1):
+                        if abs(df) + abs(dc) <= alcance:   # Distancia Manhattan
+                            fr = fila_hover + df
+                            fc = col_hover  + dc
+                            if 0 <= fr < FILAS and 0 <= fc < COLUMNAS:
+                                x1p = fc * TAMANO_CELDA
+                                y1p = fr * TAMANO_CELDA
+                                x2p = x1p + TAMANO_CELDA
+                                y2p = y1p + TAMANO_CELDA
+                                # stipple="gray25" pinta solo 1 de cada 4 píxeles,
+                                # dando el efecto de overlay semitransparente
+                                canvas.create_rectangle(
+                                    x1p, y1p, x2p, y2p,
+                                    fill=info["color"], outline="",
+                                    stipple="gray25",
+                                    tags="preview_alcance"
+                                )
+
+                # Borde blanco sobre la celda central para indicar dónde se colocaría la torre
+                xc1 = col_hover  * TAMANO_CELDA
+                yc1 = fila_hover * TAMANO_CELDA
+                canvas.create_rectangle(
+                    xc1 + 1,             yc1 + 1,
+                    xc1 + TAMANO_CELDA - 1, yc1 + TAMANO_CELDA - 1,
+                    outline="#ffffff", width=2, fill="",
+                    tags="preview_alcance"
+                )
+
+            canvas.bind("<Motion>", mostrar_alcance)
+
+        lbl_estado.config(text="")  # Limpia cualquier mensaje de error previo
 
         # Botones de torres
     for clase_torre, info in INFO_TORRES.items():
@@ -835,25 +902,183 @@ def mostrar_juego(root):
     # Separador antes del botón Listo
     tk.Label(panel, text="─────────────", bg="#16213e", fg="#444444").pack(pady=(15, 4))
 
+    def fase_ataque():
+        """
+        Inicia la fase de ataque después de que el defensor terminó de construir.
+        Reutiliza el mismo canvas (tablero ya armado) pero destruye y reconstruye
+        el panel lateral para mostrar las opciones del atacante: dinero disponible,
+        botones de selección de unidades y botón para confirmar el despliegue.
+        El atacante elige una unidad del panel y hace clic en el borde del tablero
+        para desplegarla; al confirmar, las unidades pasan a unidades_activas y
+        comienza el ciclo de combate automático.
+        """
+        ventana_juego.title("Asedio y defensa — Fase de ataque")
+
+        # Destruye todos los widgets del panel del defensor; el canvas no se toca
+        # para que torres, muros y base queden visibles durante el despliegue.
+        for widget in panel.winfo_children():
+            widget.destroy()
+
+        # ── Widgets informativos del panel del atacante ──────────────────────
+        tk.Label(panel, text="Fase de Ataque", font=("Arial", 12, "bold"),
+                 bg="#16213e", fg="#e0e0e0").pack(pady=(15, 5))
+
+        lbl_dinero_atac = tk.Label(panel, text=f"Dinero: {dinero_atacante[0]}",
+                                    font=("Arial", 12, "bold"), bg="#16213e", fg="#6bff8e")
+        lbl_dinero_atac.pack(pady=(0, 10))
+
+        lbl_seleccion_atac = tk.Label(panel, text="Elegí una unidad",
+                                       font=("Arial", 9), bg="#16213e", fg="#888888", wraplength=180)
+        lbl_seleccion_atac.pack(pady=(0, 10))
+
+        lbl_estado_atac = tk.Label(panel, text="", font=("Arial", 9),
+                                    bg="#16213e", fg="#ff6b6b", wraplength=180)
+        lbl_estado_atac.pack(pady=(0, 10))
+
+        # Etiqueta que muestra la vida actual de la base durante el combate;
+        # se guarda en la lista compartida para que ciclo_combate() pueda actualizarla.
+        lbl_vida_base[0] = tk.Label(panel, text=f"Base: {vida_base[0]} HP",
+                                     font=("Arial", 11, "bold"), bg="#16213e", fg="#e63946")
+        lbl_vida_base[0].pack(pady=(0, 5))
+
+        # Marcador de rondas actual
+        lbl_marcador = tk.Label(panel,
+                                 text=f"Rondas — Def: {rondas_sesion['defensor']}  Atac: {rondas_sesion['atacante']}",
+                                 font=("Arial", 9), bg="#16213e", fg="#888888")
+        lbl_marcador.pack(pady=(0, 10))
+
+        def seleccionar_unidad(elemento):
+            """
+            Guarda la unidad seleccionada en el panel.
+            El próximo clic en el borde del tablero la desplegará.
+                elemento: clase Unidad seleccionada (SoldadoBasico, Tanque, UnidadRapida)
+            """
+            unidad_seleccionada[0] = elemento
+            info = INFO_UNIDADES[elemento]
+            lbl_seleccion_atac.config(text=f"Seleccionada: {info['nombre']} (${info['costo']})")
+            lbl_estado_atac.config(text="")
+
+        # Un botón por cada tipo de unidad definido en INFO_UNIDADES;
+        # usar lambda c=clase_unidad captura la clase correcta en cada iteración.
+        for clase_unidad, info in INFO_UNIDADES.items():
+            tk.Button(
+                panel, text=f"{info['nombre']}\n${info['costo']}",
+                command=lambda c=clase_unidad: seleccionar_unidad(c),
+                font=("Arial", 10), bg=info["color"], fg="#ffffff",
+                activebackground="#333333", width=18, height=2, bd=0, cursor="hand2"
+            ).pack(pady=4)
+
+        tk.Label(panel, text="─────────────", bg="#16213e", fg="#444444").pack(pady=(15, 4))
+
+        def terminar_despliegue():
+            """
+            Termina la fase de despliegue del atacante.
+            Valida que se haya colocado al menos una unidad.
+            Transfiere las unidades colocadas a unidades_activas y lanza el ciclo de combate.
+            """
+            if not unidades_colocadas:
+                lbl_estado_atac.config(text="Tenés que desplegar al menos una unidad.")
+                return
+
+            # Las unidades fueron insertadas en unidades_activas al momento de colocarlas
+            # (en al_hacer_clic_ataque), por lo que aquí no hace falta agregarlas de nuevo.
+            # Solo se confirma que fila/col coincidan exactamente con la clave del diccionario,
+            # por si alguna posición quedó desincronizada durante el despliegue.
+            for pos, unidad in unidades_colocadas.items():
+                unidad.fila = pos[0]  # Garantiza que fila coincide con la posición registrada
+                unidad.col  = pos[1]  # Garantiza que col  coincide con la posición registrada
+
+            lbl_estado_atac.config(text="¡Comienza el combate!", fg="#6bff8e")
+            lbl_seleccion_atac.config(text="")
+            canvas.unbind("<Button-1>")   # Congela el tablero; el combate es automático
+
+            # Entrega el control al motor de combate
+            ciclo_combate()
+
+        tk.Button(
+            panel, text="LISTO\nIniciar ataque",
+            command=terminar_despliegue,
+            font=("Arial", 10, "bold"), bg="#0f3460", fg="#ffffff",
+            activebackground="#1b5a8a", activeforeground="#ffffff",
+            width=18, height=2, bd=0, cursor="hand2"
+        ).pack(pady=8)
+
+        def al_hacer_clic_ataque(event):
+            """
+            Maneja el clic del atacante sobre el tablero durante el despliegue.
+            Solo acepta celdas del borde del tablero (zona de despliegue).
+            Valida que haya unidad seleccionada, celda libre y dinero suficiente.
+                event: evento de clic de Tkinter
+            """
+            col = event.x // TAMANO_CELDA
+            fila = event.y // TAMANO_CELDA
+
+            if not (0 <= fila < FILAS and 0 <= col < COLUMNAS):
+                return  # Clic fuera del tablero
+
+            if unidad_seleccionada[0] is None:
+                lbl_estado_atac.config(text="Elegí una unidad del panel primero.")
+                return
+
+            if not esta_en_zona_despliegue(fila, col, FILAS, COLUMNAS):
+                lbl_estado_atac.config(text="Solo podés desplegar en el borde del tablero.")
+                return
+
+            if (fila, col) in unidades_colocadas:
+                lbl_estado_atac.config(text="Ya hay una unidad en esa celda.")
+                return
+
+            info = INFO_UNIDADES[unidad_seleccionada[0]]
+            if dinero_atacante[0] < info["costo"]:
+                lbl_estado_atac.config(text="No tenés suficiente dinero.")
+                return
+
+            # Registra la unidad: instancia la clase, la guarda en unidades_colocadas
+            # y descuenta el costo; luego redibuja la celda para mostrarla en el tablero.
+            unidades_colocadas[(fila, col)] = unidad_seleccionada[0]()
+            dinero_atacante[0] -= info["costo"]
+
+            # dibujar_celda() solo renderiza unidades que ya están en unidades_activas.
+            # Se inserta la unidad en este momento para que aparezca visualmente
+            # en el tablero de inmediato, sin esperar a que el atacante presione LISTO.
+            unidad_inst = unidades_colocadas[(fila, col)]  # Recupera la instancia recién registrada
+            unidad_inst.fila = fila  # Establece la fila inicial para el motor de combate
+            unidad_inst.col  = col   # Establece la columna inicial para el motor de combate
+            unidades_activas.append(unidad_inst)  # La hace visible en el tablero inmediatamente
+            lbl_dinero_atac.config(text=f"Dinero: {dinero_atacante[0]}")
+            lbl_estado_atac.config(text="")
+            dibujar_celda(fila, col)
+
+        # Desconecta el handler del defensor y conecta el del atacante;
+        # a partir de aquí los clics en el canvas despliegan unidades, no torres.
+        canvas.unbind("<Button-1>")
+        canvas.bind("<Button-1>", al_hacer_clic_ataque)
+
     def terminar_construccion():
         """
         Termina la fase de construcción del defensor.
-        Valida que la base haya sido colocada antes de avanzar
-        a la fase de ataque. Si todo está bien, dará paso al
-        atacante (la lógica del atacante la implementará el compañero).
+        Valida que la base haya sido colocada; si no hay base, bloquea el avance.
+        Si todo está en orden, congela el tablero, muestra el mensaje de transición
+        y, tras 1 segundo, lanza automáticamente la fase de ataque.
         """
+        # Limpia el preview de alcance: ya no es relevante una vez que se pasa al combate
+        canvas.unbind("<Motion>")
+        canvas.delete("preview_alcance")
+
         # No se puede terminar sin haber colocado la base
         if base_pos[0] is None:
             lbl_estado.config(text="Tenés que colocar la base antes de terminar.")
             return
 
-        # Muestra mensaje de que la fase terminó
-        # Cuando esté lista la fase de ataque, aquí se llamará a iniciar_fase_ataque()
+        # Informa al defensor que su turno terminó y congela el tablero
         lbl_estado.config(text="Fase de construcción terminada.", fg="#6bff8e")
         lbl_seleccion.config(text="Esperando al atacante...")
+        canvas.unbind("<Button-1>")   # Evita que el defensor siga colocando torres
 
-        # Desconecta los clics del tablero para que el defensor no pueda seguir construyendo
-        canvas.unbind("<Button-1>")
+        # Usa after() para que Tkinter renderice el mensaje antes de cambiar el panel;
+        # llamar a fase_ataque() directamente destruiría los widgets antes de que
+        # el usuario pudiera ver la confirmación.
+        ventana_juego.after(1000, fase_ataque)
 
     # Botón para terminar la fase de construcción
     tk.Button(
@@ -866,9 +1091,10 @@ def mostrar_juego(root):
   
     def dibujar_celda(fila, col):
         """
-        Dibuja o redibuja una sola celda del tablero según su estado:
-        base, torre colocada, zona de construcción, zona de despliegue o neutral.
-        Parámetros:
+        Dibuja o redibuja una sola celda del tablero según su estado actual.
+        Orden de prioridad: base > torre > muro > unidad > zona_construccion > zona_despliegue > neutro.
+        Si la celda tiene una torre, muro o unidad, dibuja además una barra de vida
+        en la parte inferior de la celda para indicar el HP restante visualmente.
             fila, col: posición de la celda a dibujar
         """
         x1 = col * TAMANO_CELDA
@@ -876,35 +1102,98 @@ def mostrar_juego(root):
         x2 = x1 + TAMANO_CELDA
         y2 = y1 + TAMANO_CELDA
 
+        # Borra todo lo que haya en esta celda antes de redibujar
         canvas.delete(f"celda_{fila}_{col}")
 
+        # Valores por defecto; se sobreescriben según la prioridad que aplique
+        color = "#3a3a3a" if (fila + col) % 2 == 0 else "#2d2d2d"
+        texto = ""
+        vida_actual = None  # None indica que esta celda no dibuja barra de vida
+        vida_max    = None
+
+        # ── Prioridad 1: base central ──
         if fila == base_pos[0] and col == base_pos[1]:
-            color = "#e63946"  # Rojo: base
-            texto = "BASE"
+            color = "#e63946"                   # Rojo para distinguir la base del resto
+            texto = f"BASE\n{vida_base[0]}HP"   # Muestra el HP actual de la base en la celda
+
+        # ── Prioridad 2: torre colocada ──
         elif (fila, col) in torres_colocadas:
             torre = torres_colocadas[(fila, col)]
-            info = INFO_TORRES[type(torre)]  # type() obtiene la clase del objeto
+            info  = INFO_TORRES[type(torre)]    # type() obtiene la clase concreta del objeto
             color = info["color"]
             texto = info["simbolo"]
-        elif (fila, col) in muros_colocados:
-            color = INFO_MURO["color"]  # Gris para los muros
-            texto = "W"                 # W de Wall (muro)
-        elif esta_en_zona_construccion(fila, col, CENTRO_FILA, CENTRO_COLUMNA, RADIO_CONSTRUCCION) and mapa_sesion[0] == "clasico":
-            color = "#1d4d3a"  # Verde: zona de construcción (solo en mapa clásico)
-            texto = ""
-        elif esta_en_zona_despliegue(fila, col, FILAS, COLUMNAS):
-            color = "#4a2f1f"  # Naranja: zona de despliegue
-            texto = ""
-        else:
-            color = "#3a3a3a" if (fila + col) % 2 == 0 else "#2d2d2d"
-            texto = ""
+            vida_actual = torre.vida
+            # Vida máxima fija por tipo; necesaria para calcular el porcentaje de la barra
+            vida_max = {TorreBasica: 100, TorrePesada: 250, TorreMagica: 80}.get(type(torre), 100)
 
-        canvas.create_rectangle(x1, y1, x2, y2, fill=color, outline="#444444", tags=f"celda_{fila}_{col}")
+        # ── Prioridad 3: muro colocado ──
+        elif (fila, col) in muros_colocados:
+            muro  = muros_colocados[(fila, col)]
+            color = INFO_MURO["color"]
+            texto = "W"               # W de Wall
+            vida_actual = muro.vida
+            vida_max    = 150         # Vida máxima fija definida en la clase Muro
+
+        # ── Prioridad 4: unidad activa ──
+        # Se evalúa después de torres y muros para no tapar estructuras con unidades encima
+        elif any(u.fila == fila and u.col == col for u in unidades_activas if u.activa):
+            unidad = next(u for u in unidades_activas if u.activa and u.fila == fila and u.col == col)
+            info   = INFO_UNIDADES[type(unidad)]
+            color  = info["color"]
+            texto  = info["simbolo"]
+            vida_actual = unidad.vida
+            vida_max    = unidad.vida_maxima  # Atributo guardado en la clase Unidad base
+
+        # ── Prioridad 5: zona de construcción (solo mapa clásico) ──
+        elif esta_en_zona_construccion(fila, col, CENTRO_FILA, CENTRO_COLUMNA, RADIO_CONSTRUCCION) and mapa_sesion[0] == "clasico":
+            color = "#1d4d3a"  # Verde para indicar al defensor dónde puede construir
+
+        # ── Prioridad 6: zona de despliegue (borde del tablero) ──
+        elif esta_en_zona_despliegue(fila, col, FILAS, COLUMNAS):
+            color = "#4a2f1f"  # Naranja oscuro para indicar al atacante dónde puede desplegar
+
+        # ── Dibuja el fondo de la celda ──
+        canvas.create_rectangle(x1, y1, x2, y2, fill=color, outline="#444444",
+                                 tags=f"celda_{fila}_{col}")
+
+        # ── Dibuja el texto centrado si hay ──
+        # Se sube 3px respecto del centro para dejar espacio visual a la barra de vida inferior
         if texto:
             canvas.create_text(
-                (x1 + x2) // 2, (y1 + y2) // 2,
-                text=texto, fill="#ffffff", font=("Arial", 9, "bold"),
+                (x1 + x2) // 2, (y1 + y2) // 2 - 3,
+                text=texto, fill="#ffffff", font=("Arial", 8, "bold"),
                 tags=f"celda_{fila}_{col}"
+            )
+
+        # ── Dibuja la barra de vida si hay HP que mostrar ──
+        if vida_actual is not None and vida_max:
+            barra_y1   = y2 - 5          # 5px desde el borde inferior de la celda
+            barra_y2   = y2 - 1          # 1px de margen para no pegarse al borde
+            barra_ancho = x2 - x1 - 4   # Ancho total con 2px de margen a cada lado
+
+            # Calcula el porcentaje de vida restante; max(0, ...) evita valores negativos
+            porcentaje = max(0, vida_actual / vida_max)
+
+            # Fondo gris oscuro que representa la vida ya perdida
+            canvas.create_rectangle(
+                x1 + 2, barra_y1, x2 - 2, barra_y2,
+                fill="#333333", outline="", tags=f"celda_{fila}_{col}"
+            )
+
+            # El color de la barra cambia según el HP restante:
+            # verde > 60 %, naranja 30–60 %, rojo < 30 %
+            if porcentaje > 0.6:
+                color_barra = "#4caf50"   # Verde: vida alta
+            elif porcentaje > 0.3:
+                color_barra = "#ff9800"   # Naranja: vida media
+            else:
+                color_barra = "#f44336"   # Rojo: vida baja
+
+            # Barra de vida proporcional al porcentaje calculado
+            canvas.create_rectangle(
+                x1 + 2, barra_y1,
+                x1 + 2 + int(barra_ancho * porcentaje), barra_y2,
+                fill=color_barra, outline="", tags=f"celda_{fila}_{col}"
             )
 
     for fila in range(FILAS):
@@ -979,6 +1268,238 @@ def mostrar_juego(root):
 
     canvas.bind("<Button-1>", al_hacer_clic)
 
+    # ---- Ciclo de combate ----
+
+    def mover_hacia_base(unidad):
+        """
+        Mueve la unidad un paso hacia la base central usando distancia Manhattan.
+        Primero intenta moverse en la dirección con mayor distancia a la base.
+        Si la celda destino está ocupada por una torre o muro, ataca en lugar de moverse.
+            unidad: objeto Unidad que se va a mover
+        """
+        if not unidad.activa or getattr(unidad, "congelada", False):
+            return  # No se mueve si está eliminada o congelada
+
+        fila_base = base_pos[0]
+        col_base  = base_pos[1]
+
+        df = fila_base - unidad.fila  # Diferencia de filas hacia la base
+        dc = col_base  - unidad.col   # Diferencia de columnas hacia la base
+
+        # Guarda la posición inicial para limpiarla al final si la unidad se movió
+        fila_inicial = unidad.fila
+        col_inicial  = unidad.col
+        se_movio     = False
+
+        pasos = unidad.velocidad
+        for _ in range(pasos):
+            if not unidad.activa:
+                break
+
+            fila_base = base_pos[0]
+            col_base  = base_pos[1]
+            df = fila_base - unidad.fila
+            dc = col_base  - unidad.col
+
+            # Si ya está en la base, la ataca y termina
+            if df == 0 and dc == 0:
+                vida_base[0] -= unidad.dano
+                dibujar_celda(fila_base, col_base)  # Actualiza HP visible de la base
+                break
+
+            # Elige la dirección con mayor distancia primero
+            if abs(df) >= abs(dc):
+                nueva_fila = unidad.fila + (1 if df > 0 else -1)
+                nueva_col  = unidad.col
+            else:
+                nueva_fila = unidad.fila
+                nueva_col  = unidad.col + (1 if dc > 0 else -1)
+
+            # Verifica si la celda destino está ocupada
+            if (nueva_fila, nueva_col) in torres_colocadas:
+                # Ataca la torre en lugar de moverse
+                torre = torres_colocadas[(nueva_fila, nueva_col)]
+                unidad.atacar(torre)
+                if not torre.activa:
+                    del torres_colocadas[(nueva_fila, nueva_col)]
+                dibujar_celda(nueva_fila, nueva_col)
+                break
+            elif (nueva_fila, nueva_col) in muros_colocados:
+                # Ataca el muro en lugar de moverse
+                muro = muros_colocados[(nueva_fila, nueva_col)]
+                unidad.atacar(muro)
+                if not muro.activo:
+                    del muros_colocados[(nueva_fila, nueva_col)]
+                dibujar_celda(nueva_fila, nueva_col)
+                break
+            elif nueva_fila == fila_base and nueva_col == col_base:
+                # Llegó a la base: la ataca y termina
+                vida_base[0] -= unidad.dano
+                dibujar_celda(fila_base, col_base)  # Muestra el nuevo HP de la base
+                break
+            else:
+                # Celda libre: actualiza posición de la unidad
+                unidad.fila = nueva_fila
+                unidad.col  = nueva_col
+                se_movio    = True
+
+        # Limpia la celda de origen y dibuja la celda final UNA sola vez
+        # Esto evita rastros visuales cuando la unidad tiene velocidad > 1
+        if se_movio:
+            dibujar_celda(fila_inicial, col_inicial)  # Borra la posición original
+            dibujar_celda(unidad.fila, unidad.col)    # Dibuja la posición final
+
+    def buscar_torre_en_rango(torre, fila_torre, col_torre):
+        """
+        Busca la primera unidad activa dentro del alcance de la torre.
+        Usa distancia Manhattan igual que el método esta_en_alcance de Torre.
+            torre:               objeto Torre que busca un objetivo
+            fila_torre, col_torre: posición de la torre en el tablero
+        Retorna: objeto Unidad si encontró una en rango, None si no hay ninguna
+        """
+        for unidad in unidades_activas:
+            if unidad.activa and torre.esta_en_alcance(fila_torre, col_torre, unidad.fila, unidad.col):
+                return unidad
+        return None  # No hay unidades en rango
+
+    def flash_ataque(fila, col, color_flash="#ffffff"):
+        """
+        Hace un flash visual en una celda para indicar que hubo un ataque.
+        Dibuja un rectángulo con borde grueso de color y lo borra tras 200ms.
+            fila, col:    celda donde ocurre el ataque
+            color_flash:  color del flash
+        """
+        # Inset de 2px para que el borde no se superponga con el borde de la celda vecina
+        x1 = col  * TAMANO_CELDA + 2
+        y1 = fila * TAMANO_CELDA + 2
+        x2 = x1 + TAMANO_CELDA - 4
+        y2 = y1 + TAMANO_CELDA - 4
+
+        # Tag único por celda; permite borrar solo este rectángulo sin afectar
+        # el resto del canvas cuando expire el after()
+        tag_flash = f"flash_{fila}_{col}"
+
+        # fill="" para no tapar el contenido de la celda;
+        # width=3 hace el borde suficientemente grueso para verse claramente
+        canvas.create_rectangle(
+            x1, y1, x2, y2,
+            outline=color_flash, width=3, fill="",
+            tags=tag_flash
+        )
+
+        # El flash dura 200ms — más largo que los 150ms anteriores para mayor visibilidad
+        ventana_juego.after(200, lambda: canvas.delete(tag_flash))
+
+    def turno_habilidades():
+        """
+        Activa las habilidades especiales de torres y unidades.
+        Se llama desde ciclo_combate cada 3 turnos para simular
+        que las habilidades no se activan en cada tick sino con cierta frecuencia.
+        """
+        # Habilidades de torres
+        for (fila_t, col_t), torre in list(torres_colocadas.items()):
+            if not torre.activa:
+                continue
+            if isinstance(torre, TorrePesada):
+                # Daño en área: busca todas las unidades en rango
+                unidades_en_area = [
+                    u for u in unidades_activas
+                    if u.activa and torre.esta_en_alcance(fila_t, col_t, u.fila, u.col)
+                ]
+                if unidades_en_area:
+                    torre.activar_habilidad(unidades_en_area)
+            else:
+                # TorreBasica y TorreMagica: apuntan a una sola unidad
+                objetivo = buscar_torre_en_rango(torre, fila_t, col_t)
+                if objetivo:
+                    torre.activar_habilidad(objetivo)
+
+        # Habilidades de unidades
+        for unidad in list(unidades_activas):
+            if not unidad.activa:
+                continue
+            fila_base_actual = base_pos[0]
+            col_base_actual  = base_pos[1]
+            # La unidad usa su habilidad contra la torre más cercana o la base
+            objetivo_cercano = None
+            for (fila_t, col_t), torre in torres_colocadas.items():
+                distancia = abs(unidad.fila - fila_t) + abs(unidad.col - col_t)
+                if torre.activa and distancia <= 2:  # Las unidades usan habilidad si están a 2 celdas de una torre
+                    objetivo_cercano = torre
+                    break
+            if objetivo_cercano:
+                unidad.activar_habilidad(objetivo_cercano)
+            elif abs(unidad.fila - fila_base_actual) + abs(unidad.col - col_base_actual) <= 1:
+                # La unidad está adyacente a la base: crea un objeto anónimo con
+                # recibir_dano() para que activar_habilidad() pueda dañarla sin
+                # necesitar una clase Base formal.
+                unidad.activar_habilidad(type('Base', (), {'recibir_dano': lambda _, d: vida_base.__setitem__(0, vida_base[0] - d)})())
+
+    def ciclo_combate():
+        """
+        Loop principal del combate en tiempo real usando after() de Tkinter.
+        Cada 800ms ejecuta un turno completo:
+            1. Mueve cada unidad activa hacia la base
+            2. Cada torre ataca la unidad más cercana en su rango
+            3. Descongela unidades cuyo contador llegó a cero
+            4. Elimina del tablero torres y unidades destruidas
+            5. Verifica si la ronda terminó
+        Las habilidades especiales se activan cada 3 turnos (cada 2400ms).
+        """
+        turno_actual = turno_combate[0]
+
+        # 1. Mover todas las unidades activas
+        for unidad in list(unidades_activas):
+            if unidad.activa:
+                mover_hacia_base(unidad)
+
+        # 2. Torres atacan a la unidad más cercana en rango con flash visual
+        for (fila_t, col_t), torre in list(torres_colocadas.items()):
+            if torre.activa:
+                objetivo = buscar_torre_en_rango(torre, fila_t, col_t)
+                if objetivo:
+                    torre.atacar(objetivo)
+                    flash_ataque(objetivo.fila, objetivo.col, "#ffffff")  # Flash blanco en la unidad atacada
+                    flash_ataque(fila_t, col_t, "#ffff00")                # Flash amarillo en la torre que atacó
+
+        # 3. Descongelar unidades cuyo tiempo terminó
+        for unidad in unidades_activas:
+            if getattr(unidad, "congelada", False):
+                unidad.turnos_congelada -= 1
+                if unidad.turnos_congelada <= 0:
+                    unidad.congelada = False  # La unidad puede moverse de nuevo
+
+        # 4. Cada 3 turnos activa las habilidades especiales
+        if turno_actual % 3 == 0:
+            turno_habilidades()
+
+        # 5. Elimina unidades destruidas del tablero
+        for unidad in list(unidades_activas):
+            if not unidad.activa:
+                dibujar_celda(unidad.fila, unidad.col)  # Limpia su celda
+                unidades_activas.remove(unidad)
+
+        # 6. Elimina torres destruidas del tablero
+        for pos, torre in list(torres_colocadas.items()):
+            if not torre.activa:
+                del torres_colocadas[pos]
+                dibujar_celda(pos[0], pos[1])
+
+        # 7. Actualiza el contador de turno
+        turno_combate[0] += 1
+
+        # 8. Verifica si la ronda terminó
+        verificar_fin_ronda()
+
+        # 9. Actualiza la etiqueta de vida de la base en el panel
+        if lbl_vida_base[0]:
+            lbl_vida_base[0].config(text=f"Base: {vida_base[0]} HP")
+
+        # 10. Si la ronda sigue activa, programa el siguiente turno
+        unidades_vivas = [u for u in unidades_activas if u.activa]
+        if vida_base[0] > 0 and unidades_vivas:
+            ventana_juego.after(800, ciclo_combate)
+
     # ---- Sistema de victorias y rondas ----
 
     def verificar_fin_ronda():
@@ -1005,11 +1526,107 @@ def mostrar_juego(root):
         vida_base[0] = 100
         unidades_activas.clear()
         dinero_atacante[0] = 300
+        # Estado residual de la fase de ataque — sin limpiar estas variables
+        # la ronda siguiente heredaría posiciones, contadores y referencias
+        # a widgets que ya fueron destruidos al reconstruir el panel
+        unidades_colocadas.clear()    # Borra las posiciones registradas durante el despliegue
+        unidad_seleccionada[0] = None # El atacante empieza sin ninguna unidad preseleccionada
+        turno_combate[0] = 0          # El ciclo de combate vuelve a arrancar desde el turno 0
+        lbl_vida_base[0] = None       # El label fue destruido con el panel viejo; se limpia
+                                      # para que ciclo_combate() no intente actualizarlo antes
+                                      # de que fase_ataque() lo recree en la nueva ronda
 
-        # Actualiza las etiquetas del panel lateral
-        lbl_dinero.config(text=f"Dinero: {dinero_defensor[0]}")
-        lbl_seleccion.config(text="Elegí una torre")
-        lbl_estado.config(text="")
+        # Reconstruye el panel lateral completo para la nueva ronda
+        for widget in panel.winfo_children():
+            widget.destroy()
+
+        # ── Reconstrucción del panel del defensor ────────────────────────────────
+        # No se puede reutilizar el panel original porque fase_ataque() destruyó
+        # todos sus widgets con winfo_children() + destroy(). Las variables
+        # lbl_dinero, lbl_seleccion y lbl_estado apuntan a objetos destruidos,
+        # así que se crean labels nuevos con nombres distintos (_nueva) y al final
+        # se redirige lbl_dinero.config para que al_hacer_clic() los actualice.
+
+        # Título de la fase
+        tk.Label(panel, text="Fase de Construcción", font=("Arial", 12, "bold"),
+                 bg="#16213e", fg="#e0e0e0").pack(pady=(15, 5))
+
+        # Label de dinero: necesita referencia para actualizarse cuando se compra una torre
+        lbl_dinero_nueva = tk.Label(panel, text=f"Dinero: {dinero_defensor[0]}",
+                                     font=("Arial", 12, "bold"), bg="#16213e", fg="#6bff8e")
+        lbl_dinero_nueva.pack(pady=(0, 5))
+
+        # Marcador de rondas actualizado: muestra el resultado de la ronda que acaba de terminar
+        tk.Label(panel, text=f"Ronda — Def: {rondas_sesion['defensor']}  Atac: {rondas_sesion['atacante']}",
+                 font=("Arial", 9), bg="#16213e", fg="#888888").pack(pady=(0, 10))
+
+        # Label que muestra qué torre/muro está seleccionado en este momento
+        lbl_seleccion_nueva = tk.Label(panel, text="Elegí una torre",
+                                        font=("Arial", 9), bg="#16213e", fg="#888888", wraplength=180)
+        lbl_seleccion_nueva.pack(pady=(0, 5))
+
+        # Label para mensajes de error al intentar colocar (celda ocupada, dinero insuficiente, etc.)
+        lbl_estado_nueva = tk.Label(panel, text="", font=("Arial", 9),
+                                     bg="#16213e", fg="#ff6b6b", wraplength=180)
+        lbl_estado_nueva.pack(pady=(0, 10))
+
+        def seleccionar_elemento_nuevo(elemento):
+            # Cumple el mismo rol que seleccionar_elemento() de la ronda 1,
+            # pero cierra sobre lbl_seleccion_nueva y lbl_estado_nueva
+            # en lugar de los labels originales que ya fueron destruidos.
+            elemento_seleccionado[0] = elemento
+            if elemento == "muro":
+                lbl_seleccion_nueva.config(text=f"Seleccionado: Muro (${INFO_MURO['costo']})")
+            else:
+                info = INFO_TORRES[elemento]
+                lbl_seleccion_nueva.config(text=f"Seleccionada: {info['nombre']} (${info['costo']})")
+            lbl_estado_nueva.config(text="")  # Limpia cualquier mensaje de error previo
+
+        # Botones de torres — uno por cada tipo definido en INFO_TORRES
+        for clase_torre, info in INFO_TORRES.items():
+            tk.Button(
+                panel, text=f"{info['nombre']}\n${info['costo']}",
+                command=lambda c=clase_torre: seleccionar_elemento_nuevo(c),
+                font=("Arial", 10), bg=info["color"], fg="#ffffff",
+                activebackground="#333333", width=18, height=2, bd=0, cursor="hand2"
+            ).pack(pady=4)
+
+        tk.Label(panel, text="─────────────", bg="#16213e", fg="#444444").pack(pady=4)
+
+        # Botón del muro
+        tk.Button(
+            panel, text=f"Muro\n${INFO_MURO['costo']}",
+            command=lambda: seleccionar_elemento_nuevo("muro"),
+            font=("Arial", 10), bg=INFO_MURO["color"], fg="#ffffff",
+            activebackground="#333333", width=18, height=2, bd=0, cursor="hand2"
+        ).pack(pady=4)
+
+        tk.Label(panel, text="─────────────", bg="#16213e", fg="#444444").pack(pady=(15, 4))
+
+        def terminar_construccion_nueva():
+            # Cumple el mismo rol que terminar_construccion() de la ronda 1.
+            # Valida que se haya colocado la base, congela el tablero y lanza
+            # fase_ataque() con un retardo de 1 s para que el defensor vea el mensaje.
+            if base_pos[0] is None:
+                lbl_estado_nueva.config(text="Tenés que colocar la base antes de terminar.")
+                return
+            lbl_estado_nueva.config(text="Fase terminada.", fg="#6bff8e")
+            canvas.unbind("<Button-1>")               # Congela el tablero durante la transición
+            ventana_juego.after(1000, fase_ataque)    # Da 1 s antes de pasar al atacante
+
+        # Botón para terminar la construcción y pasar a la fase de ataque
+        tk.Button(
+            panel, text="LISTO\nTerminar construcción",
+            command=terminar_construccion_nueva,
+            font=("Arial", 10, "bold"), bg="#0f3460", fg="#ffffff",
+            activebackground="#1b5a8a", activeforeground="#ffffff",
+            width=18, height=2, bd=0, cursor="hand2"
+        ).pack(pady=8)
+
+        # al_hacer_clic() actualiza lbl_dinero cuando el defensor compra algo.
+        # Como lbl_dinero apunta al label destruido, se redirige su método .config
+        # al del label nuevo para que las actualizaciones lleguen al widget visible.
+        lbl_dinero.config = lbl_dinero_nueva.config
 
         # Redibuja todo el tablero
         for f in range(FILAS):
