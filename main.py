@@ -1228,7 +1228,11 @@ def mostrar_juego(root):
         df = fila_base - unidad.fila  # Diferencia de filas hacia la base
         dc = col_base  - unidad.col   # Diferencia de columnas hacia la base
 
-        # Calcula los pasos posibles según la velocidad de la unidad
+        # Guarda la posición inicial para limpiarla al final si la unidad se movió
+        fila_inicial = unidad.fila
+        col_inicial  = unidad.col
+        se_movio     = False
+
         pasos = unidad.velocidad
         for _ in range(pasos):
             if not unidad.activa:
@@ -1239,9 +1243,10 @@ def mostrar_juego(root):
             df = fila_base - unidad.fila
             dc = col_base  - unidad.col
 
-            # Si llegó a la base, la ataca directamente
+            # Si ya está en la base, la ataca y termina
             if df == 0 and dc == 0:
                 vida_base[0] -= unidad.dano
+                dibujar_celda(fila_base, col_base)  # Actualiza HP visible de la base
                 break
 
             # Elige la dirección con mayor distancia primero
@@ -1258,9 +1263,8 @@ def mostrar_juego(root):
                 torre = torres_colocadas[(nueva_fila, nueva_col)]
                 unidad.atacar(torre)
                 if not torre.activa:
-                    # Torre destruida: la elimina del tablero
                     del torres_colocadas[(nueva_fila, nueva_col)]
-                    dibujar_celda(nueva_fila, nueva_col)
+                dibujar_celda(nueva_fila, nueva_col)
                 break
             elif (nueva_fila, nueva_col) in muros_colocados:
                 # Ataca el muro en lugar de moverse
@@ -1268,18 +1272,24 @@ def mostrar_juego(root):
                 unidad.atacar(muro)
                 if not muro.activo:
                     del muros_colocados[(nueva_fila, nueva_col)]
-                    dibujar_celda(nueva_fila, nueva_col)
+                dibujar_celda(nueva_fila, nueva_col)
                 break
             elif nueva_fila == fila_base and nueva_col == col_base:
-                # Llegó a la base: la ataca
+                # Llegó a la base: la ataca y termina
                 vida_base[0] -= unidad.dano
+                dibujar_celda(fila_base, col_base)  # Muestra el nuevo HP de la base
                 break
             else:
-                # Celda libre: se mueve
-                dibujar_celda(unidad.fila, unidad.col)  # Borra la celda anterior
+                # Celda libre: actualiza posición de la unidad
                 unidad.fila = nueva_fila
                 unidad.col  = nueva_col
-                dibujar_celda(unidad.fila, unidad.col)  # Dibuja en la nueva posición
+                se_movio    = True
+
+        # Limpia la celda de origen y dibuja la celda final UNA sola vez
+        # Esto evita rastros visuales cuando la unidad tiene velocidad > 1
+        if se_movio:
+            dibujar_celda(fila_inicial, col_inicial)  # Borra la posición original
+            dibujar_celda(unidad.fila, unidad.col)    # Dibuja la posición final
 
     def buscar_torre_en_rango(torre, fila_torre, col_torre):
         """
