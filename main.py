@@ -760,6 +760,17 @@ def mostrar_juego(root):
 
     INFO_MURO = {"nombre": "Muro", "costo": 30, "color": "#362E2E", "símbolo": "M"}
 
+    # Información visual y de costo de cada tipo de unidad (atacante)
+    INFO_UNIDADES = {
+        SoldadoBasico: {"nombre": "Soldado Básico", "costo": 60,  "color": "#7a5c2e"},
+        Tanque:        {"nombre": "Tanque",          "costo": 150, "color": "#4a4a4a"},
+        UnidadRapida:  {"nombre": "Unidad Rápida",   "costo": 90,  "color": "#2e5c7a"},
+    }
+
+    # Estado de la fase de ataque
+    unidad_seleccionada = [None]      # Unidad seleccionada en el panel
+    unidades_colocadas = {}           # {(fila, col): objeto Unidad} desplegadas en el borde
+
     # ---- Contenedor que une el tablero y el panel lado a lado ----
     contenedor = tk.Frame(ventana_juego)
     contenedor.pack()
