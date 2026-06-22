@@ -754,10 +754,12 @@ def mostrar_juego(root):
     lbl_vida_base   = [None] # Referencia a la etiqueta de HP de la base (se crea en fase_ataque)
 
     # Información visual y de costo de cada tipo de torre
+    # El campo "alcance" es la distancia Manhattan máxima a la que la torre puede atacar.
+    # Se usa tanto en buscar_torre_en_rango() como en el preview visual de construcción.
     INFO_TORRES = {
-        TorreBasica:  {"nombre": "Torre Básica", "costo": 80,  "color": "#3a7d5c", "simbolo": "B"},
-        TorrePesada:  {"nombre": "Torre Pesada", "costo": 200, "color": "#8b3a3a", "simbolo": "P"},
-        TorreMagica:  {"nombre": "Torre Mágica", "costo": 150, "color": "#5a4a8b", "simbolo": "M"},
+        TorreBasica:  {"nombre": "Torre Básica", "costo": 80,  "color": "#3a7d5c", "simbolo": "B", "alcance": 3},
+        TorrePesada:  {"nombre": "Torre Pesada", "costo": 200, "color": "#8b3a3a", "simbolo": "P", "alcance": 2},
+        TorreMagica:  {"nombre": "Torre Mágica", "costo": 150, "color": "#5a4a8b", "simbolo": "M", "alcance": 4},
     }
 
     INFO_MURO = {"nombre": "Muro", "costo": 30, "color": "#362E2E", "símbolo": "M"}
@@ -812,18 +814,70 @@ def mostrar_juego(root):
 
     def seleccionar_elemento(elemento):
         """
-        Marca que elemento quedó seleccionado en el panel.
-        Puede ser una torre o muro 
-        Próximo clic colocará ese elemento en el tablerp
-            elemento: clase torre o muro 
+        Marca qué elemento quedó seleccionado en el panel.
+        Si es una torre, activa el preview de alcance al mover el mouse sobre el tablero.
+            elemento: clase Torre o "muro"
         """
-        elemento_seleccionado[0] = elemento # guarda lo seleccionado
+        elemento_seleccionado[0] = elemento
+
         if elemento == "muro":
             lbl_seleccion.config(text=f"Seleccionado: Muro (${INFO_MURO['costo']})")
+            # Los muros no tienen alcance que mostrar; se quita el binding y cualquier overlay
+            canvas.unbind("<Motion>")
+            canvas.delete("preview_alcance")
         else:
-            info = INFO_TORRES[elemento]
+            info    = INFO_TORRES[elemento]
+            alcance = info["alcance"]
             lbl_seleccion.config(text=f"Seleccionada: {info['nombre']} (${info['costo']})")
-        lbl_estado.config(text="")  # Limpia mensajes de error anteriores
+
+            def mostrar_alcance(event):
+                """
+                Al mover el mouse borra el overlay anterior y dibuja uno nuevo con todas
+                las celdas dentro del alcance Manhattan de la torre seleccionada.
+                Se usa stipple="gray25" para simular transparencia (Tkinter no soporta alpha).
+                """
+                canvas.delete("preview_alcance")  # Borra el preview del frame anterior
+
+                col_hover  = event.x // TAMANO_CELDA
+                fila_hover = event.y // TAMANO_CELDA
+
+                # Si el cursor está fuera del tablero no hay nada que dibujar
+                if not (0 <= fila_hover < FILAS and 0 <= col_hover < COLUMNAS):
+                    return
+
+                # Recorre el cuadrado delimitador y filtra las celdas dentro del diamante
+                for df in range(-alcance, alcance + 1):
+                    for dc in range(-alcance, alcance + 1):
+                        if abs(df) + abs(dc) <= alcance:   # Distancia Manhattan
+                            fr = fila_hover + df
+                            fc = col_hover  + dc
+                            if 0 <= fr < FILAS and 0 <= fc < COLUMNAS:
+                                x1p = fc * TAMANO_CELDA
+                                y1p = fr * TAMANO_CELDA
+                                x2p = x1p + TAMANO_CELDA
+                                y2p = y1p + TAMANO_CELDA
+                                # stipple="gray25" pinta solo 1 de cada 4 píxeles,
+                                # dando el efecto de overlay semitransparente
+                                canvas.create_rectangle(
+                                    x1p, y1p, x2p, y2p,
+                                    fill=info["color"], outline="",
+                                    stipple="gray25",
+                                    tags="preview_alcance"
+                                )
+
+                # Borde blanco sobre la celda central para indicar dónde se colocaría la torre
+                xc1 = col_hover  * TAMANO_CELDA
+                yc1 = fila_hover * TAMANO_CELDA
+                canvas.create_rectangle(
+                    xc1 + 1,             yc1 + 1,
+                    xc1 + TAMANO_CELDA - 1, yc1 + TAMANO_CELDA - 1,
+                    outline="#ffffff", width=2, fill="",
+                    tags="preview_alcance"
+                )
+
+            canvas.bind("<Motion>", mostrar_alcance)
+
+        lbl_estado.config(text="")  # Limpia cualquier mensaje de error previo
 
         # Botones de torres
     for clase_torre, info in INFO_TORRES.items():
@@ -1007,6 +1061,10 @@ def mostrar_juego(root):
         Si todo está en orden, congela el tablero, muestra el mensaje de transición
         y, tras 1 segundo, lanza automáticamente la fase de ataque.
         """
+        # Limpia el preview de alcance: ya no es relevante una vez que se pasa al combate
+        canvas.unbind("<Motion>")
+        canvas.delete("preview_alcance")
+
         # No se puede terminar sin haber colocado la base
         if base_pos[0] is None:
             lbl_estado.config(text="Tenés que colocar la base antes de terminar.")
@@ -1306,26 +1364,31 @@ def mostrar_juego(root):
 
     def flash_ataque(fila, col, color_flash="#ffffff"):
         """
-        Hace un flash visual breve en una celda para indicar que hubo un ataque.
-        Dibuja un rectángulo encima de la celda y lo borra después de 150ms.
+        Hace un flash visual en una celda para indicar que hubo un ataque.
+        Dibuja un rectángulo con borde grueso de color y lo borra tras 200ms.
             fila, col:    celda donde ocurre el ataque
-            color_flash:  color del flash (blanco por defecto)
+            color_flash:  color del flash
         """
-        # Convierte la posición en la grilla a coordenadas en píxeles sobre el canvas
-        x1 = col  * TAMANO_CELDA      # Borde izquierdo de la celda
-        y1 = fila * TAMANO_CELDA      # Borde superior de la celda
-        x2 = x1   + TAMANO_CELDA      # Borde derecho de la celda
-        y2 = y1   + TAMANO_CELDA      # Borde inferior de la celda
+        # Inset de 2px para que el borde no se superponga con el borde de la celda vecina
+        x1 = col  * TAMANO_CELDA + 2
+        y1 = fila * TAMANO_CELDA + 2
+        x2 = x1 + TAMANO_CELDA - 4
+        y2 = y1 + TAMANO_CELDA - 4
 
-        # El tag es único por celda; permite borrar solo este rectángulo después
-        # sin tocar el resto de elementos dibujados en el canvas
+        # Tag único por celda; permite borrar solo este rectángulo sin afectar
+        # el resto del canvas cuando expire el after()
         tag_flash = f"flash_{fila}_{col}"
 
-        # Dibuja el rectángulo de color encima de lo que ya esté en esa celda
-        canvas.create_rectangle(x1, y1, x2, y2, fill=color_flash, outline="", tags=tag_flash)
+        # fill="" para no tapar el contenido de la celda;
+        # width=3 hace el borde suficientemente grueso para verse claramente
+        canvas.create_rectangle(
+            x1, y1, x2, y2,
+            outline=color_flash, width=3, fill="",
+            tags=tag_flash
+        )
 
-        # Programa el borrado 150 ms después para lograr un destello breve y no intrusivo
-        ventana_juego.after(150, lambda: canvas.delete(tag_flash))
+        # El flash dura 200ms — más largo que los 150ms anteriores para mayor visibilidad
+        ventana_juego.after(200, lambda: canvas.delete(tag_flash))
 
     def turno_habilidades():
         """
