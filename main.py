@@ -1033,9 +1033,10 @@ def mostrar_juego(root):
   
     def dibujar_celda(fila, col):
         """
-        Dibuja o redibuja una sola celda del tablero según su estado:
-        base, torre colocada, zona de construcción, zona de despliegue o neutral.
-        Parámetros:
+        Dibuja o redibuja una sola celda del tablero según su estado actual.
+        Orden de prioridad: base > torre > muro > unidad > zona_construccion > zona_despliegue > neutro.
+        Si la celda tiene una torre, muro o unidad, dibuja además una barra de vida
+        en la parte inferior de la celda para indicar el HP restante visualmente.
             fila, col: posición de la celda a dibujar
         """
         x1 = col * TAMANO_CELDA
@@ -1043,41 +1044,98 @@ def mostrar_juego(root):
         x2 = x1 + TAMANO_CELDA
         y2 = y1 + TAMANO_CELDA
 
+        # Borra todo lo que haya en esta celda antes de redibujar
         canvas.delete(f"celda_{fila}_{col}")
 
+        # Valores por defecto; se sobreescriben según la prioridad que aplique
+        color = "#3a3a3a" if (fila + col) % 2 == 0 else "#2d2d2d"
+        texto = ""
+        vida_actual = None  # None indica que esta celda no dibuja barra de vida
+        vida_max    = None
+
+        # ── Prioridad 1: base central ──
         if fila == base_pos[0] and col == base_pos[1]:
-            color = "#e63946"  # Rojo: base
-            texto = f"BASE\n{vida_base[0]}HP"  # Muestra la vida actual de la base
+            color = "#e63946"                   # Rojo para distinguir la base del resto
+            texto = f"BASE\n{vida_base[0]}HP"   # Muestra el HP actual de la base en la celda
+
+        # ── Prioridad 2: torre colocada ──
         elif (fila, col) in torres_colocadas:
             torre = torres_colocadas[(fila, col)]
-            info = INFO_TORRES[type(torre)]  # type() obtiene la clase del objeto
+            info  = INFO_TORRES[type(torre)]    # type() obtiene la clase concreta del objeto
             color = info["color"]
             texto = info["simbolo"]
-        elif (fila, col) in muros_colocados:
-            color = INFO_MURO["color"]  # Gris para los muros
-            texto = "W"                 # W de Wall (muro)
-        elif esta_en_zona_construccion(fila, col, CENTRO_FILA, CENTRO_COLUMNA, RADIO_CONSTRUCCION) and mapa_sesion[0] == "clasico":
-            color = "#1d4d3a"  # Verde: zona de construcción (solo en mapa clásico)
-            texto = ""
-        elif any(u.fila == fila and u.col == col for u in unidades_activas if u.activa):
-            # Hay una unidad activa en esta celda — la muestra con su símbolo
-            unidad = next(u for u in unidades_activas if u.activa and u.fila == fila and u.col == col)
-            info = INFO_UNIDADES[type(unidad)]
-            color = info["color"]
-            texto = info["simbolo"]
-        elif esta_en_zona_despliegue(fila, col, FILAS, COLUMNAS):
-            color = "#4a2f1f"  # Naranja: zona de despliegue
-            texto = ""
-        else:
-            color = "#3a3a3a" if (fila + col) % 2 == 0 else "#2d2d2d"
-            texto = ""
+            vida_actual = torre.vida
+            # Vida máxima fija por tipo; necesaria para calcular el porcentaje de la barra
+            vida_max = {TorreBasica: 100, TorrePesada: 250, TorreMagica: 80}.get(type(torre), 100)
 
-        canvas.create_rectangle(x1, y1, x2, y2, fill=color, outline="#444444", tags=f"celda_{fila}_{col}")
+        # ── Prioridad 3: muro colocado ──
+        elif (fila, col) in muros_colocados:
+            muro  = muros_colocados[(fila, col)]
+            color = INFO_MURO["color"]
+            texto = "W"               # W de Wall
+            vida_actual = muro.vida
+            vida_max    = 150         # Vida máxima fija definida en la clase Muro
+
+        # ── Prioridad 4: unidad activa ──
+        # Se evalúa después de torres y muros para no tapar estructuras con unidades encima
+        elif any(u.fila == fila and u.col == col for u in unidades_activas if u.activa):
+            unidad = next(u for u in unidades_activas if u.activa and u.fila == fila and u.col == col)
+            info   = INFO_UNIDADES[type(unidad)]
+            color  = info["color"]
+            texto  = info["simbolo"]
+            vida_actual = unidad.vida
+            vida_max    = unidad.vida_maxima  # Atributo guardado en la clase Unidad base
+
+        # ── Prioridad 5: zona de construcción (solo mapa clásico) ──
+        elif esta_en_zona_construccion(fila, col, CENTRO_FILA, CENTRO_COLUMNA, RADIO_CONSTRUCCION) and mapa_sesion[0] == "clasico":
+            color = "#1d4d3a"  # Verde para indicar al defensor dónde puede construir
+
+        # ── Prioridad 6: zona de despliegue (borde del tablero) ──
+        elif esta_en_zona_despliegue(fila, col, FILAS, COLUMNAS):
+            color = "#4a2f1f"  # Naranja oscuro para indicar al atacante dónde puede desplegar
+
+        # ── Dibuja el fondo de la celda ──
+        canvas.create_rectangle(x1, y1, x2, y2, fill=color, outline="#444444",
+                                 tags=f"celda_{fila}_{col}")
+
+        # ── Dibuja el texto centrado si hay ──
+        # Se sube 3px respecto del centro para dejar espacio visual a la barra de vida inferior
         if texto:
             canvas.create_text(
-                (x1 + x2) // 2, (y1 + y2) // 2,
-                text=texto, fill="#ffffff", font=("Arial", 9, "bold"),
+                (x1 + x2) // 2, (y1 + y2) // 2 - 3,
+                text=texto, fill="#ffffff", font=("Arial", 8, "bold"),
                 tags=f"celda_{fila}_{col}"
+            )
+
+        # ── Dibuja la barra de vida si hay HP que mostrar ──
+        if vida_actual is not None and vida_max:
+            barra_y1   = y2 - 5          # 5px desde el borde inferior de la celda
+            barra_y2   = y2 - 1          # 1px de margen para no pegarse al borde
+            barra_ancho = x2 - x1 - 4   # Ancho total con 2px de margen a cada lado
+
+            # Calcula el porcentaje de vida restante; max(0, ...) evita valores negativos
+            porcentaje = max(0, vida_actual / vida_max)
+
+            # Fondo gris oscuro que representa la vida ya perdida
+            canvas.create_rectangle(
+                x1 + 2, barra_y1, x2 - 2, barra_y2,
+                fill="#333333", outline="", tags=f"celda_{fila}_{col}"
+            )
+
+            # El color de la barra cambia según el HP restante:
+            # verde > 60 %, naranja 30–60 %, rojo < 30 %
+            if porcentaje > 0.6:
+                color_barra = "#4caf50"   # Verde: vida alta
+            elif porcentaje > 0.3:
+                color_barra = "#ff9800"   # Naranja: vida media
+            else:
+                color_barra = "#f44336"   # Rojo: vida baja
+
+            # Barra de vida proporcional al porcentaje calculado
+            canvas.create_rectangle(
+                x1 + 2, barra_y1,
+                x1 + 2 + int(barra_ancho * porcentaje), barra_y2,
+                fill=color_barra, outline="", tags=f"celda_{fila}_{col}"
             )
 
     for fila in range(FILAS):
