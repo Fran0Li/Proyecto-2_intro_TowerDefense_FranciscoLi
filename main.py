@@ -362,6 +362,8 @@ def mostrar_menu(root):
     mapa_sesion[0] = "clasico"  # Reinicia el mapa al volver al menú
     rondas_sesion["defensor"] = 0  # Reinicia el marcador de rondas al volver al menú
     rondas_sesion["atacante"] = 0
+    roles_sesion["defensor"]  = 0  # Reinicia la asignación de roles
+    roles_sesion["atacante"]  = 1
 
     # Frame principal que ocupa toda la ventana con fondo oscuro
     frame = tk.Frame(root, bg="#1a1a2e")
@@ -388,6 +390,7 @@ jugadores_sesion = [None, None]  # [jugador1, jugador2]
 facciones_sesion = [None, None]  # [faccion_jugador1, faccion_jugador2]
 mapa_sesion = ["clasico"]  # "clasico" o "libre" según el mapa elegido
 rondas_sesion = {"defensor": 0, "atacante": 0}  # Rondas ganadas en la partida actual
+roles_sesion  = {"defensor": 0, "atacante": 1}  # Índices en jugadores_sesion para cada rol
 
 def mostrar_login(root, numero_jugador=1):
     
@@ -544,8 +547,8 @@ def mostrar_facciones(root, numero_jugador=1):
             # Si es jugador 1, pasa a jugador 2
             mostrar_facciones(root, 2)
         else:
-            # Ambos eligieron, pasa a la selección de mapa
-            mostrar_seleccion_mapa(root)
+            # Ambos eligieron facción; ahora eligen quién defiende y quién ataca
+            mostrar_roles(root)
 
     # Crea un botón por cada facción
     for nombre, _, descripcion in facciones:
@@ -553,6 +556,51 @@ def mostrar_facciones(root, numero_jugador=1):
         btn_frame.pack(pady=6)
         #lambda captura nombre correcto
         tk.Button(btn_frame,text=f"{nombre}\n{descripcion}",command=lambda f=nombre: elegir_faccion(f),font=("Arial", 12),bg=colores[nombre], fg="#ffffff",activebackground="#333333",width=30,height=3,bd=0,cursor="hand2").pack()#color unico por faccion
+
+    _boton(frame, "Volver al menú", lambda: mostrar_menu(root))
+
+
+#  VENTANA SELECCIÓN DE ROLES
+########################################
+
+def mostrar_roles(root):
+    """
+    Pantalla intermedia entre facciones y mapa.
+    El jugador que pulse su botón queda como Defensor;
+    el otro queda automáticamente como Atacante.
+    Guarda la decisión en roles_sesion antes de avanzar.
+    """
+    _limpiar(root)
+    frame = tk.Frame(root, bg="#1a1a2e")
+    frame.pack(expand=True, fill="both")
+
+    tk.Label(frame, text="Asignación de roles",
+             font=("Arial", 22, "bold"), bg="#1a1a2e", fg="#e0e0e0").pack(pady=(60, 10))
+    tk.Label(frame, text="¿Quién jugará como Defensor?",
+             font=("Arial", 13), bg="#1a1a2e", fg="#888888").pack(pady=(0, 30))
+
+    def elegir_defensor(idx):
+        # idx: posición en jugadores_sesion del jugador que defiende
+        roles_sesion["defensor"] = idx
+        roles_sesion["atacante"] = 1 - idx
+        mostrar_seleccion_mapa(root)
+
+    j1 = jugadores_sesion[0]["usuario"]
+    j2 = jugadores_sesion[1]["usuario"]
+
+    tk.Button(
+        frame, text=f"{j1}\n🛡  Defensor",
+        command=lambda: elegir_defensor(0),
+        font=("Arial", 13), bg="#1d4d3a", fg="#ffffff",
+        activebackground="#2a6b4f", width=22, height=2, bd=0, cursor="hand2"
+    ).pack(pady=8)
+
+    tk.Button(
+        frame, text=f"{j2}\n🛡  Defensor",
+        command=lambda: elegir_defensor(1),
+        font=("Arial", 13), bg="#1d4d3a", fg="#ffffff",
+        activebackground="#2a6b4f", width=22, height=2, bd=0, cursor="hand2"
+    ).pack(pady=8)
 
     _boton(frame, "Volver al menú", lambda: mostrar_menu(root))
 
@@ -747,7 +795,7 @@ def mostrar_juego(root):
 
     # Estado de la fase de ataque (la fase de construcción no los usa todavía;
     # la fase de ataque los actualizará cada turno)
-    vida_base = [100]        # HP de la base; cuando llega a 0 el atacante gana la ronda
+    vida_base = [300]        # HP de la base; cuando llega a 0 el atacante gana la ronda
     unidades_activas = []    # Lista de objetos Unidad del atacante en el tablero
     dinero_atacante = [300]  # Dinero inicial del atacante para comprar tropas
     turno_combate   = [0]    # Contador de turnos para activar habilidades cada 3 turnos
@@ -801,7 +849,13 @@ def mostrar_juego(root):
 
     lbl_dinero = tk.Label(panel, text=f"Dinero: {dinero_defensor[0]}",
                            font=("Arial", 12, "bold"), bg="#16213e", fg="#6bff8e")
-    lbl_dinero.pack(pady=(0, 10))
+    lbl_dinero.pack(pady=(0, 6))
+
+    # Muestra los roles asignados durante toda la partida
+    tk.Label(panel,
+             text=(f"🛡 {jugadores_sesion[roles_sesion['defensor']]['usuario']}"
+                   f"  vs  ⚔ {jugadores_sesion[roles_sesion['atacante']]['usuario']}"),
+             font=("Arial", 9), bg="#16213e", fg="#888888", wraplength=200).pack(pady=(0, 8))
 
     lbl_seleccion = tk.Label(panel, text="Elegí una torre",
                               font=("Arial", 9), bg="#16213e", fg="#888888", wraplength=180)
@@ -922,6 +976,12 @@ def mostrar_juego(root):
         # ── Widgets informativos del panel del atacante ──────────────────────
         tk.Label(panel, text="Fase de Ataque", font=("Arial", 12, "bold"),
                  bg="#16213e", fg="#e0e0e0").pack(pady=(15, 5))
+
+        # Roles visibles durante la fase de ataque
+        tk.Label(panel,
+                 text=(f"🛡 {jugadores_sesion[roles_sesion['defensor']]['usuario']}"
+                       f"  vs  ⚔ {jugadores_sesion[roles_sesion['atacante']]['usuario']}"),
+                 font=("Arial", 9), bg="#16213e", fg="#888888", wraplength=200).pack(pady=(0, 6))
 
         lbl_dinero_atac = tk.Label(panel, text=f"Dinero: {dinero_atacante[0]}",
                                     font=("Arial", 12, "bold"), bg="#16213e", fg="#6bff8e")
@@ -1390,6 +1450,28 @@ def mostrar_juego(root):
         # El flash dura 200ms — más largo que los 150ms anteriores para mayor visibilidad
         ventana_juego.after(200, lambda: canvas.delete(tag_flash))
 
+    def flash_habilidad(fila, col, color, etiqueta):
+        """
+        Flash visual para habilidades especiales: borde grueso de color distinto
+        al ataque normal y texto breve. Dura 500ms para ser claramente distinguible.
+            fila, col:  celda donde se muestra el efecto
+            color:      color del borde y del texto
+            etiqueta:   texto corto que identifica la habilidad (ej: "x2", "FREEZE")
+        """
+        x1 = col  * TAMANO_CELDA + 1
+        y1 = fila * TAMANO_CELDA + 1
+        x2 = x1 + TAMANO_CELDA - 2
+        y2 = y1 + TAMANO_CELDA - 2
+        tag = f"hab_{fila}_{col}"
+        # Borde ancho de color para distinguirlo del flash de ataque (que usa width=3)
+        canvas.create_rectangle(x1, y1, x2, y2, outline=color, width=4, fill="", tags=tag)
+        # Texto centrado sobre la celda indicando qué habilidad se activó
+        canvas.create_text(
+            (x1 + x2) // 2, (y1 + y2) // 2,
+            text=etiqueta, fill=color, font=("Arial", 7, "bold"), tags=tag
+        )
+        ventana_juego.after(500, lambda: canvas.delete(tag))
+
     def turno_habilidades():
         """
         Activa las habilidades especiales de torres y unidades.
@@ -1408,11 +1490,20 @@ def mostrar_juego(root):
                 ]
                 if unidades_en_area:
                     torre.activar_habilidad(unidades_en_area)
+                    # Flash naranja en cada celda afectada por el área
+                    for u in unidades_en_area:
+                        flash_habilidad(u.fila, u.col, "#ff6600", "AREA")
             else:
                 # TorreBasica y TorreMagica: apuntan a una sola unidad
                 objetivo = buscar_torre_en_rango(torre, fila_t, col_t)
                 if objetivo:
                     torre.activar_habilidad(objetivo)
+                    if isinstance(torre, TorreMagica):
+                        # Cyan para indicar congelamiento
+                        flash_habilidad(objetivo.fila, objetivo.col, "#00e5ff", "FREEZE")
+                    else:
+                        # Amarillo para el doble disparo de TorreBasica
+                        flash_habilidad(objetivo.fila, objetivo.col, "#ffeb3b", "x2")
 
         # Habilidades de unidades
         for unidad in list(unidades_activas):
@@ -1422,18 +1513,36 @@ def mostrar_juego(root):
             col_base_actual  = base_pos[1]
             # La unidad usa su habilidad contra la torre más cercana o la base
             objetivo_cercano = None
+            fila_obj = col_obj = None
             for (fila_t, col_t), torre in torres_colocadas.items():
                 distancia = abs(unidad.fila - fila_t) + abs(unidad.col - col_t)
                 if torre.activa and distancia <= 2:  # Las unidades usan habilidad si están a 2 celdas de una torre
                     objetivo_cercano = torre
+                    fila_obj = fila_t  # Guardamos las coordenadas del dict porque Torre no tiene .fila/.col
+                    col_obj  = col_t
                     break
             if objetivo_cercano:
                 unidad.activar_habilidad(objetivo_cercano)
+                if isinstance(unidad, Tanque):
+                    # Verde sobre sí mismo: se está curando mientras ataca
+                    flash_habilidad(unidad.fila, unidad.col, "#4caf50", "+40")
+                elif isinstance(unidad, UnidadRapida):
+                    # Rojo sobre la torre: daño de perforación
+                    flash_habilidad(fila_obj, col_obj, "#f44336", "PERF")
+                else:
+                    # Dorado sobre la torre: doble golpe del SoldadoBasico
+                    flash_habilidad(fila_obj, col_obj, "#ffd700", "x2")
             elif abs(unidad.fila - fila_base_actual) + abs(unidad.col - col_base_actual) <= 1:
                 # La unidad está adyacente a la base: crea un objeto anónimo con
                 # recibir_dano() para que activar_habilidad() pueda dañarla sin
                 # necesitar una clase Base formal.
                 unidad.activar_habilidad(type('Base', (), {'recibir_dano': lambda _, d: vida_base.__setitem__(0, vida_base[0] - d)})())
+                if isinstance(unidad, Tanque):
+                    flash_habilidad(unidad.fila, unidad.col, "#4caf50", "+40")
+                elif isinstance(unidad, UnidadRapida):
+                    flash_habilidad(fila_base_actual, col_base_actual, "#f44336", "PERF")
+                else:
+                    flash_habilidad(fila_base_actual, col_base_actual, "#ffd700", "x2")
 
     def ciclo_combate():
         """
@@ -1511,8 +1620,10 @@ def mostrar_juego(root):
             return
 
         unidades_vivas = [u for u in unidades_activas if u.activa]
-        if not unidades_vivas and dinero_atacante[0] < 60:
-            # Sin unidades vivas y sin dinero para desplegar la más barata: el defensor gana
+        if not unidades_vivas:
+            # Sin unidades vivas: el defensor gana. El dinero restante no importa
+            # porque esta función solo se llama durante el combate, cuando el
+            # atacante ya no puede desplegar más unidades.
             registrar_victoria("defensor")
 
     def reiniciar_ronda():
@@ -1523,7 +1634,7 @@ def mostrar_juego(root):
         base_pos[1] = None
         dinero_defensor[0] = 500
         elemento_seleccionado[0] = None
-        vida_base[0] = 100
+        vida_base[0] = 300
         unidades_activas.clear()
         dinero_atacante[0] = 300
         # Estado residual de la fase de ataque — sin limpiar estas variables
@@ -1551,6 +1662,12 @@ def mostrar_juego(root):
         tk.Label(panel, text="Fase de Construcción", font=("Arial", 12, "bold"),
                  bg="#16213e", fg="#e0e0e0").pack(pady=(15, 5))
 
+        # Roles visibles al inicio de cada ronda nueva
+        tk.Label(panel,
+                 text=(f"🛡 {jugadores_sesion[roles_sesion['defensor']]['usuario']}"
+                       f"  vs  ⚔ {jugadores_sesion[roles_sesion['atacante']]['usuario']}"),
+                 font=("Arial", 9), bg="#16213e", fg="#888888", wraplength=200).pack(pady=(0, 6))
+
         # Label de dinero: necesita referencia para actualizarse cuando se compra una torre
         lbl_dinero_nueva = tk.Label(panel, text=f"Dinero: {dinero_defensor[0]}",
                                      font=("Arial", 12, "bold"), bg="#16213e", fg="#6bff8e")
@@ -1571,15 +1688,58 @@ def mostrar_juego(root):
         lbl_estado_nueva.pack(pady=(0, 10))
 
         def seleccionar_elemento_nuevo(elemento):
-            # Cumple el mismo rol que seleccionar_elemento() de la ronda 1,
-            # pero cierra sobre lbl_seleccion_nueva y lbl_estado_nueva
-            # en lugar de los labels originales que ya fueron destruidos.
+            """
+            Igual que seleccionar_elemento() de la ronda 1 pero para rondas siguientes.
+            También activa el preview de alcance con Motion igual que en la ronda 1.
+            """
             elemento_seleccionado[0] = elemento
             if elemento == "muro":
                 lbl_seleccion_nueva.config(text=f"Seleccionado: Muro (${INFO_MURO['costo']})")
+                # Los muros no tienen alcance; se quita el binding y el overlay
+                canvas.unbind("<Motion>")
+                canvas.delete("preview_alcance")
             else:
                 info = INFO_TORRES[elemento]
                 lbl_seleccion_nueva.config(text=f"Seleccionada: {info['nombre']} (${info['costo']})")
+                alcance = info["alcance"]
+
+                def mostrar_alcance(event):
+                    # Borra el preview del frame anterior y dibuja el nuevo
+                    canvas.delete("preview_alcance")
+                    col_hover = event.x // TAMANO_CELDA
+                    fila_hover = event.y // TAMANO_CELDA
+                    if not (0 <= fila_hover < FILAS and 0 <= col_hover < COLUMNAS):
+                        return
+                    # Recorre el cuadrado delimitador y filtra las celdas dentro del diamante
+                    for df in range(-alcance, alcance + 1):
+                        for dc in range(-alcance, alcance + 1):
+                            if abs(df) + abs(dc) <= alcance:   # Distancia Manhattan
+                                fr = fila_hover + df
+                                fc = col_hover + dc
+                                if 0 <= fr < FILAS and 0 <= fc < COLUMNAS:
+                                    x1p = fc * TAMANO_CELDA
+                                    y1p = fr * TAMANO_CELDA
+                                    x2p = x1p + TAMANO_CELDA
+                                    y2p = y1p + TAMANO_CELDA
+                                    # stipple="gray25" simula transparencia (Tkinter no soporta alpha)
+                                    canvas.create_rectangle(
+                                        x1p, y1p, x2p, y2p,
+                                        fill=info["color"], outline="",
+                                        stipple="gray25",
+                                        tags="preview_alcance"
+                                    )
+                    # Borde blanco sobre la celda central para indicar dónde se colocaría la torre
+                    xc1 = col_hover * TAMANO_CELDA
+                    yc1 = fila_hover * TAMANO_CELDA
+                    canvas.create_rectangle(
+                        xc1 + 1, yc1 + 1,
+                        xc1 + TAMANO_CELDA - 1, yc1 + TAMANO_CELDA - 1,
+                        outline="#ffffff", width=2, fill="",
+                        tags="preview_alcance"
+                    )
+
+                canvas.bind("<Motion>", mostrar_alcance)
+
             lbl_estado_nueva.config(text="")  # Limpia cualquier mensaje de error previo
 
         # Botones de torres — uno por cada tipo definido en INFO_TORRES
@@ -1623,10 +1783,11 @@ def mostrar_juego(root):
             width=18, height=2, bd=0, cursor="hand2"
         ).pack(pady=8)
 
-        # al_hacer_clic() actualiza lbl_dinero cuando el defensor compra algo.
-        # Como lbl_dinero apunta al label destruido, se redirige su método .config
-        # al del label nuevo para que las actualizaciones lleguen al widget visible.
-        lbl_dinero.config = lbl_dinero_nueva.config
+        # Redirige los .config de los tres labels originales (ya destruidos)
+        # a los nuevos para que al_hacer_clic() los actualice correctamente
+        lbl_dinero.config    = lbl_dinero_nueva.config
+        lbl_estado.config    = lbl_estado_nueva.config
+        lbl_seleccion.config = lbl_seleccion_nueva.config
 
         # Redibuja todo el tablero
         for f in range(FILAS):
@@ -1651,7 +1812,7 @@ def mostrar_juego(root):
     def terminar_partida(ganador):
         # Incrementa la victoria en el JSON del jugador ganador y muestra la pantalla de resultados.
         # ganador: "defensor" o "atacante"
-        usuario_ganador = jugadores_sesion[0] if ganador == "defensor" else jugadores_sesion[1]
+        usuario_ganador = jugadores_sesion[roles_sesion[ganador]]
         campo_victoria = "victorias_defensor" if ganador == "defensor" else "victorias_atacante"
 
         # Actualiza el contador en el archivo JSON
@@ -1671,14 +1832,37 @@ def mostrar_juego(root):
         frame = tk.Frame(root, bg="#1a1a2e")
         frame.pack(expand=True, fill="both")
 
-        tk.Label(frame, text="¡Partida terminada!",
-                 font=("Arial", 26, "bold"), bg="#1a1a2e", fg="#e0e0e0").pack(pady=(80, 10))
+        # Nombre del perdedor para mostrarlo también en la pantalla de resultados
+        rol_perdedor     = "atacante" if ganador == "defensor" else "defensor"
+        usuario_perdedor = jugadores_sesion[roles_sesion[rol_perdedor]]
+
+        tk.Label(frame, text="🏆 ¡VICTORIA! 🏆",
+                 font=("Arial", 30, "bold"), bg="#1a1a2e", fg="#ffd700").pack(pady=(60, 5))
+
+        # Nombre del ganador en mayúsculas y destacado
         tk.Label(frame,
-                 text=f"Ganador: {usuario_ganador['usuario']} ({ganador})",
-                 font=("Arial", 18), bg="#1a1a2e", fg="#6bff8e").pack(pady=(0, 10))
+                 text=f"{usuario_ganador['usuario'].upper()}",
+                 font=("Arial", 24, "bold"), bg="#1a1a2e", fg="#6bff8e").pack(pady=(0, 5))
+
+        # Rol con el que ganó (defensor o atacante)
         tk.Label(frame,
-                 text=f"Marcador — Defensor: {rondas_sesion['defensor']}  |  Atacante: {rondas_sesion['atacante']}",
-                 font=("Arial", 13), bg="#1a1a2e", fg="#e0e0e0").pack(pady=(0, 40))
+                 text=f"ganó como {ganador}",
+                 font=("Arial", 14), bg="#1a1a2e", fg="#aaaaaa").pack(pady=(0, 20))
+
+        tk.Label(frame,
+                 text=f"Marcador final",
+                 font=("Arial", 12, "bold"), bg="#1a1a2e", fg="#e0e0e0").pack(pady=(0, 5))
+
+        # Rondas ganadas por cada rol con íconos de escudo y espada
+        tk.Label(frame,
+                 text=f"🛡  Defensor: {rondas_sesion['defensor']}  —  ⚔  Atacante: {rondas_sesion['atacante']}",
+                 font=("Arial", 13), bg="#1a1a2e", fg="#e0e0e0").pack(pady=(0, 30))
+
+        # Línea de derrota en rojo para el jugador perdedor
+        tk.Label(frame,
+                 text=f"Derrota de {usuario_perdedor['usuario']} ({rol_perdedor})",
+                 font=("Arial", 11), bg="#1a1a2e", fg="#ff6b6b").pack(pady=(0, 30))
+
         _boton(frame, "Volver al menú", lambda: mostrar_menu(root))
 
 
