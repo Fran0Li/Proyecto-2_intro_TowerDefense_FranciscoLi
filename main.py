@@ -787,7 +787,7 @@ def mostrar_juego(root):
     ventana_juego.geometry(f"{ancho_tablero + ANCHO_PANEL}x{alto + 45}")
 
     # ---- Estado del juego (listas para poder modificarlas dentro de funciones internas) ----
-    dinero_defensor = [500]       # Dinero inicial del defensor
+    dinero_defensor = [350]       # Dinero inicial del defensor (ronda 1, sin bonos)
     base_pos = [None, None]       # Posición [fila, col] de la base, None hasta colocarla
     torres_colocadas = {}         # {(fila, col): objeto Torre}
     muros_colocados = {} #{(fila, col): objeto muro}
@@ -797,9 +797,10 @@ def mostrar_juego(root):
     # la fase de ataque los actualizará cada turno)
     vida_base = [300]        # HP de la base; cuando llega a 0 el atacante gana la ronda
     unidades_activas = []    # Lista de objetos Unidad del atacante en el tablero
-    dinero_atacante = [300]  # Dinero inicial del atacante para comprar tropas
+    dinero_atacante = [250]  # Dinero inicial del atacante para comprar tropas (ronda 1, sin bonos)
     turno_combate   = [0]    # Contador de turnos para activar habilidades cada 3 turnos
     lbl_vida_base   = [None] # Referencia a la etiqueta de HP de la base (se crea en fase_ataque)
+    bonus_kills_ronda = [0]  # Bono acumulado por kills del defensor; se suma en ciclo_combate y se usa en reiniciar_ronda
 
     # Información visual y de costo de cada tipo de torre
     # El campo "alcance" es la distancia Manhattan máxima a la que la torre puede atacar.
@@ -1582,10 +1583,11 @@ def mostrar_juego(root):
         if turno_actual % 3 == 0:
             turno_habilidades()
 
-        # 5. Elimina unidades destruidas del tablero
+        # 5. Elimina unidades destruidas del tablero y acumula bono de kills para el defensor
         for unidad in list(unidades_activas):
             if not unidad.activa:
-                dibujar_celda(unidad.fila, unidad.col)  # Limpia su celda
+                dibujar_celda(unidad.fila, unidad.col)
+                bonus_kills_ronda[0] += int(unidad.costo * 0.6)  # 60 % del costo de la unidad eliminada
                 unidades_activas.remove(unidad)
 
         # 6. Elimina torres destruidas del tablero
@@ -1627,16 +1629,33 @@ def mostrar_juego(root):
             registrar_victoria("defensor")
 
     def reiniciar_ronda():
-        # Limpia todo el estado del tablero para empezar la siguiente ronda desde cero.
+        # ── Bonos de rendimiento ──────────────────────────────────────────────────
+        # Se calculan ANTES de limpiar el estado porque necesitamos leer
+        # vida_base (para saber cuánto daño recibió la base) y unidades_activas
+        # (para contar cuántas unidades mató el defensor).
+        #
+        # Defensor: 350 base + 60 % del costo de cada unidad eliminada
+        #   SoldadoBasico(60) → +36  |  Tanque(150) → +90  |  UnidadRapida(90) → +54
+        # Atacante:  250 base + 1 oro por cada punto de daño infligido a la base
+        #   Si hace 0 daño → 250  |  Si destruye la base (300 dmg) → 550
+
+        dano_base_ronda = 300 - max(0, vida_base[0])   # Daño total a la base esta ronda
+        bonus_atacante  = dano_base_ronda              # 1 oro por HP de daño
+        # bonus_kills_ronda ya fue acumulado en ciclo_combate al momento de eliminar cada unidad
+
+        # ── Limpieza del estado ───────────────────────────────────────────────────
         torres_colocadas.clear()
         muros_colocados.clear()
         base_pos[0] = None
         base_pos[1] = None
-        dinero_defensor[0] = 500
         elemento_seleccionado[0] = None
         vida_base[0] = 300
         unidades_activas.clear()
-        dinero_atacante[0] = 300
+
+        # ── Dinero para la siguiente ronda ────────────────────────────────────────
+        dinero_defensor[0] = 350 + bonus_kills_ronda[0]
+        dinero_atacante[0] = 250 + bonus_atacante
+        bonus_kills_ronda[0] = 0    # Reset para la siguiente ronda
         # Estado residual de la fase de ataque — sin limpiar estas variables
         # la ronda siguiente heredaría posiciones, contadores y referencias
         # a widgets que ya fueron destruidos al reconstruir el panel
