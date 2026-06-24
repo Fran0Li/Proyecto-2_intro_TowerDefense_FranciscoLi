@@ -646,7 +646,7 @@ def mostrar_ranking(root):
     else:
         # enumerate(top_def, 1) genera pares (posición, jugador) empezando en 1
         for i, j in enumerate(top_def, 1):
-            tk.Label(frame, text=f"{i}. {j['usuario']} — {j['victorias_defensor']} victorias",font=("Arial", 12),bg="#1a1a2e",fg="#e0e0e0").pack()
+            tk.Label(frame, text=f"{i}. {j['usuario']} — 🛡 {j['victorias_defensor']} def  |  ⚔ {j['victorias_atacante']} atac",font=("Arial", 12),bg="#1a1a2e",fg="#e0e0e0").pack()
 
     #  TOP 5 ATACANTES
     tk.Label( frame,text="Top 5 Atacantes",
