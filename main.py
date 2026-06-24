@@ -1266,7 +1266,7 @@ def mostrar_juego(root):
 
         # ── Dibuja la barra de vida si hay HP que mostrar ──
         if vida_actual is not None and vida_max:
-            barra_y1   = y2 - 5          # 5px desde el borde inferior de la celda
+            barra_y1   = y2 - 8          # 8px desde el borde → barra de 7px, más visible sin tapar el sprite
             barra_y2   = y2 - 1          # 1px de margen para no pegarse al borde
             barra_ancho = x2 - x1 - 4   # Ancho total con 2px de margen a cada lado
 
