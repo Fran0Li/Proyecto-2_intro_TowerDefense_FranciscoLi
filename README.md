@@ -56,3 +56,6 @@ Proyecto/
 - **Clic izquierdo** sobre el tablero: colocar torre, muro o unidad
 - **Panel lateral**: seleccionar qué construir o comprar
 - El combate es automático una vez iniciada la fase de ataque
+
+## Link de la video - evidencia del proyecto
+https://www.youtube.com/watch?v=lyp8tMydS1c
