@@ -1,7 +1,8 @@
 import tkinter as tk
 from tkinter import messagebox
 import json
-import os 
+import os
+from PIL import Image, ImageTk
 
 
 #CLASE DEL JUGADOR
@@ -25,7 +26,6 @@ class Jugador:
             "contrasena": self.contrasena,
             "victorias_defensor": self.victorias_defensor,
             "victorias_atacante": self.victorias_atacante }
-
 
 
 #  CLASE MURO
@@ -186,6 +186,7 @@ class Unidad:
         self.dano = dano              # Daño que hace por ataque normal
         self.velocidad = velocidad    # Cantidad de celdas que se puede mover por turno
         self.activa = True            # True = unidad viva, False = unidad eliminada
+        self.atacando = False         # False = moviéndose, True = atacando torre (para animación de sprite)
 
     def recibir_dano(self, cantidad):
         # Resta vida a la unidad cuando una torre o defensa la ataca.
@@ -498,13 +499,7 @@ def mostrar_facciones(root, numero_jugador=1):
     frame.pack(expand=True, fill="both")
 
     # Título indicando qué jugador está eligiendo
-    tk.Label(
-        frame,
-        text=f"Jugador {numero_jugador} — Elige tu facción",
-        font=("Arial", 22, "bold"),
-        bg="#1a1a2e",
-        fg="#e0e0e0"
-    ).pack(pady=(60, 10))
+    tk.Label(frame,text=f"Jugador {numero_jugador} — Elige tu facción",font=("Arial", 22, "bold"),bg="#1a1a2e",fg="#e0e0e0").pack(pady=(60, 10))
 
     # Muestra qué eligió el jugador anterior si ya eligió
     if numero_jugador == 2 and facciones_sesion[0]:
@@ -588,19 +583,9 @@ def mostrar_roles(root):
     j1 = jugadores_sesion[0]["usuario"]
     j2 = jugadores_sesion[1]["usuario"]
 
-    tk.Button(
-        frame, text=f"{j1}\n🛡  Defensor",
-        command=lambda: elegir_defensor(0),
-        font=("Arial", 13), bg="#1d4d3a", fg="#ffffff",
-        activebackground="#2a6b4f", width=22, height=2, bd=0, cursor="hand2"
-    ).pack(pady=8)
+    tk.Button(frame, text=f"{j1}\n🛡  Defensor",command=lambda: elegir_defensor(0),font=("Arial", 13), bg="#1d4d3a", fg="#ffffff",activebackground="#2a6b4f", width=22, height=2, bd=0, cursor="hand2").pack(pady=8)
 
-    tk.Button(
-        frame, text=f"{j2}\n🛡  Defensor",
-        command=lambda: elegir_defensor(1),
-        font=("Arial", 13), bg="#1d4d3a", fg="#ffffff",
-        activebackground="#2a6b4f", width=22, height=2, bd=0, cursor="hand2"
-    ).pack(pady=8)
+    tk.Button(frame, text=f"{j2}\n🛡  Defensor",command=lambda: elegir_defensor(1),font=("Arial", 13), bg="#1d4d3a", fg="#ffffff",activebackground="#2a6b4f", width=22, height=2, bd=0, cursor="hand2").pack(pady=8)
 
     _boton(frame, "Volver al menú", lambda: mostrar_menu(root))
 
@@ -616,46 +601,16 @@ def mostrar_seleccion_mapa(root):
     frame = tk.Frame(root, bg="#1a1a2e")
     frame.pack(expand=True, fill="both")
 
-    tk.Label(
-        frame,
-        text="Elige el mapa",
-        font=("Arial", 22, "bold"),
-        bg="#1a1a2e",
-        fg="#e0e0e0"
-    ).pack(pady=(80, 30))
+    tk.Label( frame,text="Elige el mapa",font=("Arial", 22, "bold"),bg="#1a1a2e", fg="#e0e0e0").pack(pady=(80, 30))
 
     def elegir_mapa(tipo):
         # Guarda el tipo de mapa elegido y abre la ventana del juego
         mapa_sesion[0] = tipo
         mostrar_juego(root)
 
-    tk.Button(
-        frame,
-        text="Mapa Clásico",
-        command=lambda: elegir_mapa("clasico"),
-        font=("Arial", 14),
-        bg="#1d4d3a",
-        fg="#ffffff",
-        activebackground="#333333",
-        width=20,
-        height=2,
-        bd=0,
-        cursor="hand2"
-    ).pack(pady=10)
+    tk.Button(frame,text="Mapa Clásico",command=lambda: elegir_mapa("clasico"),font=("Arial", 14),bg="#1d4d3a",fg="#ffffff",activebackground="#333333",width=20,height=2,bd=0,cursor="hand2").pack(pady=10)
 
-    tk.Button(
-        frame,
-        text="Mapa Libre",
-        command=lambda: elegir_mapa("libre"),
-        font=("Arial", 14),
-        bg="#4a3728",
-        fg="#ffffff",
-        activebackground="#333333",
-        width=20,
-        height=2,
-        bd=0,
-        cursor="hand2"
-    ).pack(pady=10)
+    tk.Button(frame,text="Mapa Libre",command=lambda: elegir_mapa("libre"),font=("Arial", 14), bg="#4a3728",fg="#ffffff",activebackground="#333333",width=20, height=2,bd=0,cursor="hand2").pack(pady=10)
 
 
 #  VENTANA RANKING
@@ -747,6 +702,67 @@ def esta_en_zona_despliegue(fila, col, filas, columnas):
     return fila == 0 or fila == filas - 1 or col == 0 or col == columnas - 1
 
 
+def cargar_sprites():
+    """
+    Carga todos los sprites PNG de cada facción desde la carpeta Sprites/.
+    Retorna un diccionario anidado: sprites[faccion][tipo] = ImageTk.PhotoImage
+    Las unidades tienen dos frames: sprites[faccion][tipo] es una lista [frame1, frame2]
+    Si un archivo no existe simplemente no se agrega; el juego usa el color de respaldo.
+    """
+    # Mapeo facción → nombre de carpeta (la interna no tiene tilde en "Acuatico")
+    MAPEO_CARPETA = {
+        "Medieval":  "Medieval",
+        "Futurista": "Futurista",
+        "Acuático":  "Acuatico",
+    }
+
+    # Tipos con un solo sprite
+    TIPOS_SIMPLES = {
+        "base":         "Base",
+        "muro":         "Muro",
+        "torre_basica": "Torrebasica",
+        "torre_pesada": "Torrepesada",
+        "torre_magica": "Torremagica",
+    }
+    # Tipos con dos frames de animación (unidades)
+    TIPOS_ANIMADOS = {
+        "soldado":       "Soldado",
+        "tanque":        "Tanque",
+        "unidad_rapida": "Unidadrapida",
+    }
+
+    resultado = {}
+    for faccion, carpeta_nombre in MAPEO_CARPETA.items():
+        resultado[faccion] = {}
+        carpeta = os.path.join("Sprites", carpeta_nombre)
+
+        # Sprites simples (1 imagen)
+        for clave, prefijo in TIPOS_SIMPLES.items():
+            ruta = os.path.join(carpeta, f"{prefijo}_{carpeta_nombre}.png")
+            if os.path.exists(ruta):
+                try:
+                    img = Image.open(ruta).convert("RGBA").resize((28, 28), Image.NEAREST)
+                    resultado[faccion][clave] = ImageTk.PhotoImage(img)
+                except Exception:
+                    pass  # Si falla la carga, el juego usa el color de respaldo
+
+        # Sprites animados (2 frames)
+        for clave, prefijo in TIPOS_ANIMADOS.items():
+            frames = []
+            for n in ["1", "2"]:
+                ruta = os.path.join(carpeta, f"{prefijo}_{carpeta_nombre}{n}.png")
+                if os.path.exists(ruta):
+                    try:
+                        img = Image.open(ruta).convert("RGBA").resize((28, 28), Image.NEAREST)
+                        frames.append(ImageTk.PhotoImage(img))
+                    except Exception:
+                        pass
+            if frames:
+                resultado[faccion][clave] = frames  # Lista [frame1, frame2]
+
+    return resultado
+
+
 def mostrar_juego(root):
     """
     Abre la ventana del juego como Toplevel y oculta el menú principal.
@@ -780,6 +796,7 @@ def mostrar_juego(root):
         """Cierra la ventana del juego y vuelve a mostrar el menú principal."""
         ventana_juego.destroy()
         root.deiconify()
+        mostrar_menu(root)
 
     ventana_juego.protocol("WM_DELETE_WINDOW", volver_al_menu)
 
@@ -811,7 +828,7 @@ def mostrar_juego(root):
         TorreMagica:  {"nombre": "Torre Mágica", "costo": 150, "color": "#5a4a8b", "simbolo": "M", "alcance": 4},
     }
 
-    INFO_MURO = {"nombre": "Muro", "costo": 30, "color": "#362E2E", "símbolo": "M"}
+    INFO_MURO = {"nombre": "Muro", "costo": 30, "color": "#362E2E", "simbolo": "M"}
 
     # Información visual y de costo de cada tipo de unidad (atacante)
     INFO_UNIDADES = {
@@ -823,6 +840,24 @@ def mostrar_juego(root):
     # Estado de la fase de ataque
     unidad_seleccionada = [None]      # Unidad seleccionada en el panel
     unidades_colocadas = {}           # {(fila, col): objeto Unidad} desplegadas en el borde
+
+    # ── Sprites y animación ────────────────────────────────────────────────────
+    # Los sprites se cargan una sola vez al abrir el juego para no releer el disco
+    # en cada dibujar_celda(). Si Pillow no está instalado o falta un archivo,
+    # cargar_sprites() los omite y el juego sigue usando los colores de respaldo.
+    sprites = cargar_sprites()
+
+    # Índice de frame actual para la animación de ataque de unidades (0 o 1).
+    # Se alterna en mover_hacia_base() cuando la unidad golpea una torre.
+    frame_ataque = [0]
+
+    # Facciones de cada rol, resueltas una vez para no releer roles_sesion en cada celda
+    faccion_defensor = facciones_sesion[roles_sesion["defensor"]]
+    faccion_atacante = facciones_sesion[roles_sesion["atacante"]]
+
+    # Diccionario que mantiene vivas las referencias a ImageTk.PhotoImage.
+    # Tkinter descarta las imágenes si Python las recolecta → celdas vacías.
+    imagenes_activas = {}
 
     # ---- Contenedor que une el tablero y el panel lado a lado ----
     contenedor = tk.Frame(ventana_juego)
@@ -1257,6 +1292,48 @@ def mostrar_juego(root):
                 fill=color_barra, outline="", tags=f"celda_{fila}_{col}"
             )
 
+        # ── Dibuja el sprite de facción encima del color de respaldo ──────────
+        # Es una capa visual pura; no afecta la lógica de juego.
+        # Usa el mismo tag que el resto de la celda para borrarse con canvas.delete().
+        sprite_img = None
+        cx = (x1 + x2) // 2          # Centro X de la celda
+        cy = (y1 + y2) // 2 - 3      # Centro Y (mismo offset -3px que el texto)
+
+        if fila == base_pos[0] and col == base_pos[1]:
+            sprite_img = sprites.get(faccion_defensor, {}).get("base")
+
+        elif (fila, col) in torres_colocadas:
+            torre = torres_colocadas[(fila, col)]
+            if isinstance(torre, TorreBasica):
+                clave = "torre_basica"
+            elif isinstance(torre, TorrePesada):
+                clave = "torre_pesada"
+            else:
+                clave = "torre_magica"
+            sprite_img = sprites.get(faccion_defensor, {}).get(clave)
+
+        elif (fila, col) in muros_colocados:
+            sprite_img = sprites.get(faccion_defensor, {}).get("muro")
+
+        elif any(u.fila == fila and u.col == col for u in unidades_activas if u.activa):
+            unidad = next(u for u in unidades_activas if u.activa and u.fila == fila and u.col == col)
+            if isinstance(unidad, SoldadoBasico):
+                clave = "soldado"
+            elif isinstance(unidad, Tanque):
+                clave = "tanque"
+            else:
+                clave = "unidad_rapida"
+            frames = sprites.get(faccion_atacante, {}).get(clave)
+            if frames:
+                # frame_ataque[0] se alterna cuando la unidad golpea; frame 0 si se mueve
+                idx = (frame_ataque[0] if getattr(unidad, "atacando", False) else 0) % len(frames)
+                sprite_img = frames[idx]
+
+        if sprite_img:
+            canvas.create_image(cx, cy, image=sprite_img, tags=f"celda_{fila}_{col}")
+            # Mantiene la referencia viva para que Tkinter no descarte la imagen
+            imagenes_activas[f"{fila}_{col}"] = sprite_img
+
     for fila in range(FILAS):
         for col in range(COLUMNAS):
             dibujar_celda(fila, col)
@@ -1384,6 +1461,12 @@ def mostrar_juego(root):
                 if not torre.activa:
                     del torres_colocadas[(nueva_fila, nueva_col)]
                 dibujar_celda(nueva_fila, nueva_col)
+                # El atacante gana oro por dañar y destruir torres
+                dinero_atacante[0] += unidad.dano  # 1 oro por punto de daño
+                if not torre.activa:
+                    dinero_atacante[0] += 20  # Bonus extra por destruir la torre
+                unidad.atacando = True                      # Activa frame de ataque en el sprite
+                frame_ataque[0] = 1 - frame_ataque[0]      # Alterna entre frame 0 y 1
                 break
             elif (nueva_fila, nueva_col) in muros_colocados:
                 # Ataca el muro en lugar de moverse
@@ -1403,6 +1486,7 @@ def mostrar_juego(root):
                 unidad.fila = nueva_fila
                 unidad.col  = nueva_col
                 se_movio    = True
+                unidad.atacando = False  # Vuelve al frame de movimiento
 
         # Limpia la celda de origen y dibuja la celda final UNA sola vez
         # Esto evita rastros visuales cuando la unidad tiene velocidad > 1
@@ -1453,25 +1537,27 @@ def mostrar_juego(root):
 
     def flash_habilidad(fila, col, color, etiqueta):
         """
-        Flash visual para habilidades especiales: borde grueso de color distinto
-        al ataque normal y texto breve. Dura 500ms para ser claramente distinguible.
-            fila, col:  celda donde se muestra el efecto
-            color:      color del borde y del texto
-            etiqueta:   texto corto que identifica la habilidad (ej: "x2", "FREEZE")
+        Flash visual para habilidades especiales.
+        Dibuja un rectángulo relleno + texto grande y lo sube al frente del canvas
+        para que no quede tapado por dibujar_celda(). Dura 600ms.
         """
         x1 = col  * TAMANO_CELDA + 1
         y1 = fila * TAMANO_CELDA + 1
         x2 = x1 + TAMANO_CELDA - 2
         y2 = y1 + TAMANO_CELDA - 2
         tag = f"hab_{fila}_{col}"
-        # Borde ancho de color para distinguirlo del flash de ataque (que usa width=3)
-        canvas.create_rectangle(x1, y1, x2, y2, outline=color, width=4, fill="", tags=tag)
-        # Texto centrado sobre la celda indicando qué habilidad se activó
+        # Fondo semiopaco para que el texto contraste incluso sobre otras figuras
+        canvas.create_rectangle(x1, y1, x2, y2,
+                                outline=color, width=4, fill="#000000",
+                                stipple="gray50", tags=tag)
         canvas.create_text(
             (x1 + x2) // 2, (y1 + y2) // 2,
-            text=etiqueta, fill=color, font=("Arial", 7, "bold"), tags=tag
+            text=etiqueta, fill=color, font=("Arial", 11, "bold"), tags=tag
         )
-        ventana_juego.after(500, lambda: canvas.delete(tag))
+        # Sube todos los items con este tag al frente para que no queden debajo
+        # de lo que dibujar_celda() redibuje justo después en el mismo turno
+        canvas.tag_raise(tag)
+        ventana_juego.after(600, lambda: canvas.delete(tag))
 
     def turno_habilidades():
         """
@@ -1517,7 +1603,7 @@ def mostrar_juego(root):
             fila_obj = col_obj = None
             for (fila_t, col_t), torre in torres_colocadas.items():
                 distancia = abs(unidad.fila - fila_t) + abs(unidad.col - col_t)
-                if torre.activa and distancia <= 2:  # Las unidades usan habilidad si están a 2 celdas de una torre
+                if torre.activa and distancia <= 1:  # Distancia 1 = la unidad está adyacente y realmente atacando
                     objetivo_cercano = torre
                     fila_obj = fila_t  # Guardamos las coordenadas del dict porque Torre no tiene .fila/.col
                     col_obj  = col_t
