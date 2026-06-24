@@ -1086,12 +1086,14 @@ def mostrar_juego(root):
 
             lbl_estado_atac.config(text="¡Comienza el combate!", fg="#6bff8e")
             lbl_seleccion_atac.config(text="")
-            canvas.unbind("<Button-1>")   # Congela el tablero; el combate es automático
+            # Durante el combate el atacante puede seguir colocando unidades
+            # El binding se mantiene activo; al_hacer_clic_ataque ya valida
+            # dinero, celda libre y zona de despliegue
 
             # Entrega el control al motor de combate
             ciclo_combate()
 
-        tk.Button(panel, text="LISTO\nIniciar ataque",command=terminar_despliegue,font=("Arial", 10, "bold"), bg="#0f3460", fg="#ffffff",activebackground="#1b5a8a", activeforeground="#ffffff",width=18, height=2, bd=0, cursor="hand2").pack(pady=8)
+        tk.Button(panel, text="LISTO\nIniciar combate",command=terminar_despliegue,font=("Arial", 10, "bold"), bg="#0f3460", fg="#ffffff",activebackground="#1b5a8a", activeforeground="#ffffff",width=18, height=2, bd=0, cursor="hand2").pack(pady=8)
 
         def al_hacer_clic_ataque(event):
             """
@@ -1138,6 +1140,13 @@ def mostrar_juego(root):
             lbl_dinero_atac.config(text=f"Dinero: {dinero_atacante[0]}")
             lbl_estado_atac.config(text="")
             dibujar_celda(fila, col)
+
+            # Si el atacante ya no tiene dinero para la unidad más barata,
+            # avisarle que no puede comprar más
+            costo_minimo = min(info["costo"] for info in INFO_UNIDADES.values())
+            if dinero_atacante[0] < costo_minimo:
+                lbl_estado_atac.config(
+                    text="Sin dinero para más unidades.", fg="#ff6b6b")
 
         # Desconecta el handler del defensor y conecta el del atacante;
         # a partir de aquí los clics en el canvas despliegan unidades, no torres.
@@ -1680,7 +1689,9 @@ def mostrar_juego(root):
             lbl_vida_base[0].config(text=f"Base: {vida_base[0]} HP")
         # 10. Si la ronda sigue activa, programa el siguiente turno
         unidades_vivas = [u for u in unidades_activas if u.activa]
-        if vida_base[0] > 0 and unidades_vivas:
+        costo_minimo = min(info["costo"] for info in INFO_UNIDADES.values())
+        atacante_puede_comprar = dinero_atacante[0] >= costo_minimo
+        if vida_base[0] > 0 and (unidades_vivas or atacante_puede_comprar):
             ventana_juego.after(800, ciclo_combate)
 
     # Sistema de victorias y rondas ############
@@ -1747,13 +1758,19 @@ def mostrar_juego(root):
 
     def verificar_fin_ronda():
         # Comprueba si alguna condición de victoria se cumplió al final de cada turno.
-        # Usa animacion_fin_ronda() para mostrar el efecto visual antes de registrar.
         if vida_base[0] <= 0:
+            canvas.unbind("<Button-1>")
             animacion_fin_ronda("atacante", lambda: registrar_victoria("atacante"))
             return
 
         unidades_vivas = [u for u in unidades_activas if u.activa]
-        if not unidades_vivas:
+        costo_minimo = min(info["costo"] for info in INFO_UNIDADES.values())
+        atacante_puede_comprar = dinero_atacante[0] >= costo_minimo
+
+        if not unidades_vivas and not atacante_puede_comprar:
+            # El defensor gana solo cuando no hay unidades vivas
+            # Y el atacante no tiene dinero para comprar más
+            canvas.unbind("<Button-1>")
             animacion_fin_ronda("defensor", lambda: registrar_victoria("defensor"))
 
     def reiniciar_ronda():
