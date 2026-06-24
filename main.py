@@ -1873,8 +1873,7 @@ def mostrar_juego(root):
                                         x1p, y1p, x2p, y2p,
                                         fill=info["color"], outline="",
                                         stipple="gray25",
-                                        tags="preview_alcance"
-                                    )
+                                        tags="preview_alcance")
                     # Borde blanco sobre la celda central para indicar dónde se colocaría la torre
                     xc1 = col_hover * TAMANO_CELDA
                     yc1 = fila_hover * TAMANO_CELDA
@@ -1882,13 +1881,10 @@ def mostrar_juego(root):
                         xc1 + 1, yc1 + 1,
                         xc1 + TAMANO_CELDA - 1, yc1 + TAMANO_CELDA - 1,
                         outline="#ffffff", width=2, fill="",
-                        tags="preview_alcance"
-                    )
-
+                        tags="preview_alcance" )
                 canvas.bind("<Motion>", mostrar_alcance)
 
             lbl_estado_nueva.config(text="")  # Limpia cualquier mensaje de error previo
-
         # Botones de torres — uno por cada tipo definido en INFO_TORRES
         for clase_torre, info in INFO_TORRES.items():
             tk.Button(
@@ -1901,12 +1897,7 @@ def mostrar_juego(root):
         tk.Label(panel, text="─────────────", bg="#16213e", fg="#444444").pack(pady=4)
 
         # Botón del muro
-        tk.Button(
-            panel, text=f"Muro\n${INFO_MURO['costo']}",
-            command=lambda: seleccionar_elemento_nuevo("muro"),
-            font=("Arial", 10), bg=INFO_MURO["color"], fg="#ffffff",
-            activebackground="#333333", width=18, height=2, bd=0, cursor="hand2"
-        ).pack(pady=4)
+        tk.Button(panel, text=f"Muro\n${INFO_MURO['costo']}",command=lambda: seleccionar_elemento_nuevo("muro"),font=("Arial", 10), bg=INFO_MURO["color"], fg="#ffffff",activebackground="#333333", width=18, height=2, bd=0, cursor="hand2").pack(pady=4)
 
         tk.Label(panel, text="─────────────", bg="#16213e", fg="#444444").pack(pady=(15, 4))
 
@@ -1922,13 +1913,7 @@ def mostrar_juego(root):
             ventana_juego.after(1000, fase_ataque)    # Da 1 s antes de pasar al atacante
 
         # Botón para terminar la construcción y pasar a la fase de ataque
-        tk.Button(
-            panel, text="LISTO\nTerminar construcción",
-            command=terminar_construccion_nueva,
-            font=("Arial", 10, "bold"), bg="#0f3460", fg="#ffffff",
-            activebackground="#1b5a8a", activeforeground="#ffffff",
-            width=18, height=2, bd=0, cursor="hand2"
-        ).pack(pady=8)
+        tk.Button(panel, text="LISTO\nTerminar construcción",command=terminar_construccion_nueva,font=("Arial", 10, "bold"), bg="#0f3460", fg="#ffffff",activebackground="#1b5a8a", activeforeground="#ffffff",width=18, height=2, bd=0, cursor="hand2").pack(pady=8)
 
         # Redirige los .config de los tres labels originales (ya destruidos)
         # a los nuevos para que al_hacer_clic() los actualice correctamente
