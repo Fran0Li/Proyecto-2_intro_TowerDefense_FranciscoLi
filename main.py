@@ -659,7 +659,7 @@ def mostrar_ranking(root):
         tk.Label(frame, text="Sin datos aún.", bg="#1a1a2e", fg="#888888").pack()
     else:
         for i, j in enumerate(top_atac, 1):
-            tk.Label(frame, text=f"{i}. {j['usuario']} — {j['victorias_atacante']} victorias",font=("Arial", 12),bg="#1a1a2e",fg="#e0e0e0").pack()
+            tk.Label(frame, text=f"{i}. {j['usuario']} — 🛡 {j['victorias_defensor']} def  |  ⚔ {j['victorias_atacante']} atac",font=("Arial", 12),bg="#1a1a2e",fg="#e0e0e0").pack()
 
     # Botón para volver al menú principal
     _boton(frame, "Volver al menú", lambda: mostrar_menu(root))
