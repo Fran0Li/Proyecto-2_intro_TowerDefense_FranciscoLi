@@ -1091,13 +1091,7 @@ def mostrar_juego(root):
             # Entrega el control al motor de combate
             ciclo_combate()
 
-        tk.Button(
-            panel, text="LISTO\nIniciar ataque",
-            command=terminar_despliegue,
-            font=("Arial", 10, "bold"), bg="#0f3460", fg="#ffffff",
-            activebackground="#1b5a8a", activeforeground="#ffffff",
-            width=18, height=2, bd=0, cursor="hand2"
-        ).pack(pady=8)
+        tk.Button(panel, text="LISTO\nIniciar ataque",command=terminar_despliegue,font=("Arial", 10, "bold"), bg="#0f3460", fg="#ffffff",activebackground="#1b5a8a", activeforeground="#ffffff",width=18, height=2, bd=0, cursor="hand2").pack(pady=8)
 
         def al_hacer_clic_ataque(event):
             """
@@ -1657,62 +1651,110 @@ def mostrar_juego(root):
                     torre.atacar(objetivo)
                     flash_ataque(objetivo.fila, objetivo.col, "#ffffff")  # Flash blanco en la unidad atacada
                     flash_ataque(fila_t, col_t, "#ffff00")                # Flash amarillo en la torre que atacó
-
         # 3. Descongelar unidades cuyo tiempo terminó
         for unidad in unidades_activas:
             if getattr(unidad, "congelada", False):
                 unidad.turnos_congelada -= 1
                 if unidad.turnos_congelada <= 0:
                     unidad.congelada = False  # La unidad puede moverse de nuevo
-
         # 4. Cada 3 turnos activa las habilidades especiales
         if turno_actual % 3 == 0:
             turno_habilidades()
-
         # 5. Elimina unidades destruidas del tablero y acumula bono de kills para el defensor
         for unidad in list(unidades_activas):
             if not unidad.activa:
                 dibujar_celda(unidad.fila, unidad.col)
                 bonus_kills_ronda[0] += int(unidad.costo * 0.6)  # 60 % del costo de la unidad eliminada
                 unidades_activas.remove(unidad)
-
         # 6. Elimina torres destruidas del tablero
         for pos, torre in list(torres_colocadas.items()):
             if not torre.activa:
                 del torres_colocadas[pos]
                 dibujar_celda(pos[0], pos[1])
-
         # 7. Actualiza el contador de turno
         turno_combate[0] += 1
-
         # 8. Verifica si la ronda terminó
         verificar_fin_ronda()
-
         # 9. Actualiza la etiqueta de vida de la base en el panel
         if lbl_vida_base[0]:
             lbl_vida_base[0].config(text=f"Base: {vida_base[0]} HP")
-
         # 10. Si la ronda sigue activa, programa el siguiente turno
         unidades_vivas = [u for u in unidades_activas if u.activa]
         if vida_base[0] > 0 and unidades_vivas:
             ventana_juego.after(800, ciclo_combate)
 
-    # ---- Sistema de victorias y rondas ----
+    # Sistema de victorias y rondas ############
+
+    def animacion_fin_ronda(ganador, callback):
+        """
+        Muestra una animación corta antes de registrar el resultado.
+        - Atacante gana: destella la base en rojo/naranja 4 veces (explosión).
+        - Defensor gana: destella el tablero completo en verde 3 veces.
+        Al terminar llama a callback() para continuar el flujo normal.
+        """
+        if ganador == "atacante":
+            fila_b, col_b = base_pos[0], base_pos[1]
+            # Secuencia de colores: rojo → dorado → rojo → dorado → gris (restaura)
+            colores_explosion = ["#ff4500", "#ffcc00", "#ff4500", "#ffcc00", "#3a3a3a"]
+            def paso_explosion(i=0):
+                if i < len(colores_explosion):
+                    x1 = col_b * TAMANO_CELDA
+                    y1 = fila_b * TAMANO_CELDA
+                    x2 = x1 + TAMANO_CELDA
+                    y2 = y1 + TAMANO_CELDA
+                    canvas.delete(f"celda_{fila_b}_{col_b}")
+                    canvas.create_rectangle(x1, y1, x2, y2,
+                        fill=colores_explosion[i], outline="#444444",
+                        tags=f"celda_{fila_b}_{col_b}")
+                    canvas.create_text((x1 + x2) // 2, (y1 + y2) // 2,
+                        text="💥", font=("Arial", 14),
+                        tags=f"celda_{fila_b}_{col_b}")
+                    ventana_juego.after(200, lambda: paso_explosion(i + 1))
+                else:
+                    # Terminó la explosión: muestra el banner de resultado
+                    mostrar_banner("⚔ ¡ATACANTE GANA LA RONDA!", "#ff4500", callback)
+            paso_explosion()
+        else:
+            # Overlay verde semitransparente que parpadea sobre todo el tablero
+            canvas.create_rectangle(
+                0, 0, COLUMNAS * TAMANO_CELDA, FILAS * TAMANO_CELDA,
+                fill="#00ff88", stipple="gray25", outline="", tags="overlay_victoria")
+
+            def quitar_overlay(i=0):
+                if i < 3:
+                    # Alterna entre verde claro y verde oscuro para el parpadeo
+                    canvas.itemconfig("overlay_victoria",
+                        fill="#00ff88" if i % 2 == 0 else "#005533")
+                    ventana_juego.after(200, lambda: quitar_overlay(i + 1))
+                else:
+                    canvas.delete("overlay_victoria")
+                    mostrar_banner("🛡 ¡DEFENSOR GANA LA RONDA!", "#00cc66", callback)
+            quitar_overlay()
+    def mostrar_banner(texto, color, callback):
+        """
+        Muestra un label grande centrado sobre el canvas por 1.5 s
+        y luego llama a callback() para continuar el flujo.
+        """
+        ancho = COLUMNAS * TAMANO_CELDA
+        alto_canvas = FILAS * TAMANO_CELDA
+        banner = tk.Label(ventana_juego, text=texto,
+                          font=("Arial", 20, "bold"),
+                          bg=color, fg="#ffffff",
+                          padx=20, pady=10)
+        banner.place(x=ancho // 2, y=alto_canvas // 2, anchor="center")
+        # Destruye el banner y ejecuta el callback después de 1.5 s
+        ventana_juego.after(1500, lambda: [banner.destroy(), callback()])
 
     def verificar_fin_ronda():
         # Comprueba si alguna condición de victoria se cumplió al final de cada turno.
-        # La fase de ataque debe llamar a esta función después de procesar cada turno.
+        # Usa animacion_fin_ronda() para mostrar el efecto visual antes de registrar.
         if vida_base[0] <= 0:
-            # La base fue destruida: el atacante gana esta ronda
-            registrar_victoria("atacante")
+            animacion_fin_ronda("atacante", lambda: registrar_victoria("atacante"))
             return
 
         unidades_vivas = [u for u in unidades_activas if u.activa]
         if not unidades_vivas:
-            # Sin unidades vivas: el defensor gana. El dinero restante no importa
-            # porque esta función solo se llama durante el combate, cuando el
-            # atacante ya no puede desplegar más unidades.
-            registrar_victoria("defensor")
+            animacion_fin_ronda("defensor", lambda: registrar_victoria("defensor"))
 
     def reiniciar_ronda():
         # ── Bonos de rendimiento ──────────────────────────────────────────────────
