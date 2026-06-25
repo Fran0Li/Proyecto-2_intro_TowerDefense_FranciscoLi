@@ -3,8 +3,15 @@ from tkinter import messagebox
 import json
 import os
 from PIL import Image, ImageTk
+import pygame
 
-
+# Inicializa pygame para reproducir música de fondo en loop
+try:
+    pygame.init()
+    pygame.mixer.music.load("musica_juego.mp3")
+    pygame.mixer.music.play(-1)  # -1 = loop infinito
+except Exception:
+    pass  # Si pygame falla o no hay archivo, el juego sigue sin música
 #CLASE DEL JUGADOR
 ######################################
 class Jugador:
@@ -347,6 +354,45 @@ def iniciar_sesion(usuario, contrasena):
     return None  # No se encontró coincidencia
 
 
+#  VENTANA CONFIGURACIÓN DE VOLUMEN
+#####################################
+def mostrar_volumen(root):
+    """
+    Abre una ventana Toplevel con un slider para controlar
+    el volumen de la música de fondo usando pygame.mixer.
+    """
+    ventana_vol = tk.Toplevel(root)
+    ventana_vol.title("Configuración de volumen")
+    ventana_vol.resizable(False, False)
+    ventana_vol.geometry("400x300")
+    # Canvas con imagen de fondo Menu.png
+    canvas_vol = tk.Canvas(ventana_vol, width=400, height=300)
+    canvas_vol.pack(expand=True, fill="both")
+    try:
+        img = Image.open("Menu.png").resize((400, 300), Image.LANCZOS)
+        foto = ImageTk.PhotoImage(img)
+        canvas_vol.create_image(0, 0, anchor="nw", image=foto)
+        canvas_vol._fondo_ref = foto  # Evita que el GC descarte la imagen
+    except Exception:
+        canvas_vol.configure(bg="#1a1a2e")  # Fondo de respaldo si falla
+    # Título centrado sobre el slider
+    canvas_vol.create_text(200, 60, text="Volumen de música",
+        font=("Arial", 16, "bold"), fill="#ffffff")
+    # Lee el volumen actual de pygame; usa 0.5 si el mixer no está activo
+    vol_actual = pygame.mixer.music.get_volume() if pygame.mixer.get_init() else 0.5
+    slider_var = tk.DoubleVar(value=vol_actual)
+    def cambiar_volumen(val):
+        # Aplica el valor del slider directamente al mixer; silencioso si falla
+        try:
+            pygame.mixer.music.set_volume(float(val))
+        except Exception:
+            pass
+    # Slider horizontal de 0.0 (mudo) a 1.0 (máximo)
+    slider = tk.Scale(ventana_vol,from_=0.0, to=1.0,resolution=0.01,orient="horizontal",variable=slider_var,command=cambiar_volumen,length=250,bg="#0d1117", fg="#ffffff",troughcolor="#4a9aba",highlightthickness=0,font=("Arial", 10))
+    canvas_vol.create_window(200, 160, window=slider)
+    # Botón para cerrar la ventana de volumen
+    btn_cerrar = tk.Button(ventana_vol, text="Cerrar",command=ventana_vol.destroy,font=("Arial", 12), bg="#16213e", fg="#ffffff",activebackground="#0f3460", activeforeground="#ffffff",width=12, bd=0, cursor="hand2")
+    canvas_vol.create_window(200, 240, window=btn_cerrar)
 #  VENTANA MENU PRINCIPAL
 #####################################
 def mostrar_menu(root):
@@ -366,21 +412,45 @@ def mostrar_menu(root):
     roles_sesion["defensor"]  = 0  # Reinicia la asignación de roles
     roles_sesion["atacante"]  = 1
 
-    # Frame principal que ocupa toda la ventana con fondo oscuro
-    frame = tk.Frame(root, bg="#1a1a2e")
-    frame.pack(expand=True, fill="both")
+    # Canvas como fondo con imagen Menu.png
+    canvas_menu = tk.Canvas(root, width=800, height=600)
+    canvas_menu.pack(expand=True, fill="both")
+    try:
+        img_fondo = Image.open("Menu.png").resize((800, 600), Image.LANCZOS)
+        foto_fondo = ImageTk.PhotoImage(img_fondo)
+        canvas_menu.create_image(0, 0, anchor="nw", image=foto_fondo)
+        canvas_menu._fondo_ref = foto_fondo  # Evita que el GC borre la imagen
+    except Exception:
+        canvas_menu.configure(bg="#1a1a2e")  # Fondo de respaldo si falla
 
-    # Título del juego
-    tk.Label(frame,text="Asedio y defensa",font=("Arial", 28, "bold"),bg="#1a1a2e",fg="#e0e0e0").pack(pady=(120, 10))  # 120px arriba, 10px abajo
+    canvas_menu.create_text(400, 150, text="Asedio y defensa",
+        font=("Arial", 28, "bold"), fill="#ffffff")
+    canvas_menu.create_text(400, 195, text="Juego de estrategia",
+        font=("Arial", 12), fill="#cccccc")
 
-    # Subtítulo descriptivo
-    tk.Label(frame,text="Juego de estrategia",font=("Arial", 12), bg="#1a1a2e",fg="#888888").pack(pady=(0, 60))  # 60px de espacio antes de los botones
+    btn_jugar   = tk.Button(root, text="Jugar",   command=lambda: mostrar_login(root),
+                            font=("Arial", 14), bg="#16213e", fg="#e0e0e0",
+                            activebackground="#0f3460", activeforeground="#ffffff",
+                            width=20, height=2, bd=0, cursor="hand2")
+    btn_ranking = tk.Button(root, text="Ranking", command=lambda: mostrar_ranking(root),
+                            font=("Arial", 14), bg="#16213e", fg="#e0e0e0",
+                            activebackground="#0f3460", activeforeground="#ffffff",
+                            width=20, height=2, bd=0, cursor="hand2")
+    btn_salir   = tk.Button(root, text="Salir",   command=root.quit,
+                            font=("Arial", 14), bg="#16213e", fg="#e0e0e0",
+                            activebackground="#0f3460", activeforeground="#ffffff",
+                            width=20, height=2, bd=0, cursor="hand2")
+    canvas_menu.create_window(400, 290, window=btn_jugar)
+    canvas_menu.create_window(400, 360, window=btn_ranking)
+    canvas_menu.create_window(400, 430, window=btn_salir)
 
-    # Botones del menú principal
-    # Cada botón llama a su ventana correspondiente usando lambda
-    _boton(frame, "Jugar",   lambda: mostrar_login(root))   # Lleva al login
-    _boton(frame, "Ranking", lambda: mostrar_ranking(root)) # Lleva al ranking
-    _boton(frame, "Salir",   root.quit)                     # Cierra la aplicación
+    # Botón pequeño de volumen en la esquina superior derecha del menú
+    btn_volumen = tk.Button(root, text="🔊",
+        command=lambda: mostrar_volumen(root),
+        font=("Arial", 11), bg="#16213e", fg="#ffffff",
+        activebackground="#0f3460", activeforeground="#ffffff",
+        width=3, bd=0, cursor="hand2")
+    canvas_menu.create_window(770, 30, window=btn_volumen)
 
 #  VENTANA LOGIN / REGISTRO
 ########################################
@@ -401,27 +471,47 @@ def mostrar_login(root, numero_jugador=1):
     #    numero_jugador:  1 o 2 según qué jugador está ingresando
     _limpiar(root)
 
-    frame = tk.Frame(root, bg="#1a1a2e")
-    frame.pack(expand=True, fill="both")
+    # Canvas de fondo con imagen Menu.png
+    canvas_login = tk.Canvas(root, width=800, height=600)
+    canvas_login.pack(expand=True, fill="both")
+    try:
+        img = Image.open("Menu.png").resize((800, 600), Image.LANCZOS)
+        foto = ImageTk.PhotoImage(img)
+        canvas_login.create_image(0, 0, anchor="nw", image=foto)
+        canvas_login._fondo_ref = foto
+    except Exception:
+        canvas_login.configure(bg="#1a1a2e")
+
+    # Borde azul más visible y fondo más oscuro para mayor contraste con el fondo del menú
+    frame = tk.Frame(root, bg="#0d1117",
+                     highlightbackground="#4a9aba",
+                     highlightthickness=3)
+    canvas_login.create_window(400, 300, window=frame, anchor="center")
+
+    # Botón pequeño de volumen en la esquina superior derecha
+    btn_vol = tk.Button(root, text="🔊", command=lambda: mostrar_volumen(root),
+        font=("Arial", 11), bg="#16213e", fg="#ffffff",
+        activebackground="#0f3460", width=3, bd=0, cursor="hand2")
+    canvas_login.create_window(770, 30, window=btn_vol)
 
     # Título que indica qué jugador está ingresando
-    tk.Label( frame,text=f"Jugador {numero_jugador} — Iniciar sesión",font=("Arial", 22, "bold"),bg="#1a1a2e", fg="#e0e0e0").pack(pady=(60, 20))
+    tk.Label( frame,text=f"Jugador {numero_jugador} — Iniciar sesión",font=("Arial", 22, "bold"),bg="#0d1117", fg="#ffffff").pack(pady=(60, 20))
 
-    #  Espacio usuario 
-    tk.Label(frame,text="Usuario:",font=("Arial", 12),bg="#1a1a2e",fg="#e0e0e0").pack()
+    #  Espacio usuario
+    tk.Label(frame,text="Usuario:",font=("Arial", 12),bg="#0d1117",fg="#ffffff").pack()
 
     # Entry es el widget de Tkinter para ingresar texto
     entry_usuario = tk.Entry(frame, font=("Arial", 12), width=25)
     entry_usuario.pack(pady=(4, 12))
 
-    #  Espacio contraseña 
-    tk.Label(frame, text="Contraseña:",  font=("Arial", 12), bg="#1a1a2e",fg="#e0e0e0").pack()
+    #  Espacio contraseña
+    tk.Label(frame, text="Contraseña:",  font=("Arial", 12), bg="#0d1117",fg="#ffffff").pack()
     # show="*" oculta el texto con asteriscos como cualquier espacio de contraseña
     entry_contrasena = tk.Entry(frame, font=("Arial", 12), width=25, show="*")
     entry_contrasena.pack(pady=(4, 20))
-    # Etiqueta para mensajes de error o éxito 
+    # Etiqueta para mensajes de error o éxito
     # Se actualiza con .config(text=...) desde las funciones de login/registro
-    lbl_mensaje = tk.Label(frame,text="", font=("Arial", 10), bg="#1a1a2e",fg="#ff6b6b" ) # Rojo para errores
+    lbl_mensaje = tk.Label(frame,text="", font=("Arial", 10), bg="#0d1117",fg="#ff6b6b" ) # Rojo para errores
     lbl_mensaje.pack(pady=(0, 10))
 
     #  Función interna de login 
@@ -495,18 +585,38 @@ def mostrar_facciones(root, numero_jugador=1):
     #    numero_jugador:  1 o 2 según qué jugador está eligiendo
     _limpiar(root)
 
-    frame = tk.Frame(root, bg="#1a1a2e")
-    frame.pack(expand=True, fill="both")
+    # Canvas de fondo con imagen Menu.png
+    canvas_facciones = tk.Canvas(root, width=800, height=600)
+    canvas_facciones.pack(expand=True, fill="both")
+    try:
+        img = Image.open("Menu.png").resize((800, 600), Image.LANCZOS)
+        foto = ImageTk.PhotoImage(img)
+        canvas_facciones.create_image(0, 0, anchor="nw", image=foto)
+        canvas_facciones._fondo_ref = foto
+    except Exception:
+        canvas_facciones.configure(bg="#1a1a2e")
+
+    # Borde azul más visible y fondo más oscuro para mayor contraste con el fondo del menú
+    frame = tk.Frame(root, bg="#0d1117",
+                     highlightbackground="#4a9aba",
+                     highlightthickness=3)
+    canvas_facciones.create_window(400, 300, window=frame, anchor="center")
+
+    # Botón pequeño de volumen en la esquina superior derecha
+    btn_vol = tk.Button(root, text="🔊", command=lambda: mostrar_volumen(root),
+        font=("Arial", 11), bg="#16213e", fg="#ffffff",
+        activebackground="#0f3460", width=3, bd=0, cursor="hand2")
+    canvas_facciones.create_window(770, 30, window=btn_vol)
 
     # Título indicando qué jugador está eligiendo
-    tk.Label(frame,text=f"Jugador {numero_jugador} — Elige tu facción",font=("Arial", 22, "bold"),bg="#1a1a2e",fg="#e0e0e0").pack(pady=(60, 10))
+    tk.Label(frame,text=f"Jugador {numero_jugador} — Elige tu facción",font=("Arial", 22, "bold"),bg="#0d1117",fg="#ffffff").pack(pady=(60, 10))
 
     # Muestra qué eligió el jugador anterior si ya eligió
     if numero_jugador == 2 and facciones_sesion[0]:
-        tk.Label(frame,text=f"Jugador 1 eligió: {facciones_sesion[0]}",font=("Arial", 11),bg="#1a1a2e",fg="#888888").pack(pady=(0, 20))
+        tk.Label(frame,text=f"Jugador 1 eligió: {facciones_sesion[0]}",font=("Arial", 11),bg="#0d1117",fg="#888888").pack(pady=(0, 20))
 
     # Etiqueta para mensajes de error
-    lbl_mensaje = tk.Label(frame,text="",font=("Arial", 10),bg="#1a1a2e",fg="#ff6b6b")
+    lbl_mensaje = tk.Label(frame,text="",font=("Arial", 10),bg="#0d1117",fg="#ff6b6b")
     lbl_mensaje.pack(pady=(0, 10))
 
     # Datos de cada facción: nombre, color del botón, descripción
@@ -547,13 +657,13 @@ def mostrar_facciones(root, numero_jugador=1):
 
     # Crea un botón por cada facción
     for nombre, _, descripcion in facciones:
+        # Frame interno con el mismo fondo oscuro para que coincida con el frame padre
         btn_frame = tk.Frame(frame, bg="#1a1a2e")
         btn_frame.pack(pady=6)
         #lambda captura nombre correcto
         tk.Button(btn_frame,text=f"{nombre}\n{descripcion}",command=lambda f=nombre: elegir_faccion(f),font=("Arial", 12),bg=colores[nombre], fg="#ffffff",activebackground="#333333",width=30,height=3,bd=0,cursor="hand2").pack()#color unico por faccion
 
     _boton(frame, "Volver al menú", lambda: mostrar_menu(root))
-
 
 #  VENTANA SELECCIÓN DE ROLES
 ########################################
@@ -566,13 +676,34 @@ def mostrar_roles(root):
     Guarda la decisión en roles_sesion antes de avanzar.
     """
     _limpiar(root)
-    frame = tk.Frame(root, bg="#1a1a2e")
-    frame.pack(expand=True, fill="both")
+
+    # Canvas de fondo con imagen Menu.png
+    canvas_roles = tk.Canvas(root, width=800, height=600)
+    canvas_roles.pack(expand=True, fill="both")
+    try:
+        img = Image.open("Menu.png").resize((800, 600), Image.LANCZOS)
+        foto = ImageTk.PhotoImage(img)
+        canvas_roles.create_image(0, 0, anchor="nw", image=foto)
+        canvas_roles._fondo_ref = foto
+    except Exception:
+        canvas_roles.configure(bg="#1a1a2e")
+
+    # Borde azul más visible y fondo más oscuro para mayor contraste con el fondo del menú
+    frame = tk.Frame(root, bg="#0d1117",
+                     highlightbackground="#4a9aba",
+                     highlightthickness=3)
+    canvas_roles.create_window(400, 300, window=frame, anchor="center")
+
+    # Botón pequeño de volumen en la esquina superior derecha
+    btn_vol = tk.Button(root, text="🔊", command=lambda: mostrar_volumen(root),
+        font=("Arial", 11), bg="#16213e", fg="#ffffff",
+        activebackground="#0f3460", width=3, bd=0, cursor="hand2")
+    canvas_roles.create_window(770, 30, window=btn_vol)
 
     tk.Label(frame, text="Asignación de roles",
-             font=("Arial", 22, "bold"), bg="#1a1a2e", fg="#e0e0e0").pack(pady=(60, 10))
+             font=("Arial", 22, "bold"), bg="#0d1117", fg="#ffffff").pack(pady=(60, 10))
     tk.Label(frame, text="¿Quién jugará como Defensor?",
-             font=("Arial", 13), bg="#1a1a2e", fg="#888888").pack(pady=(0, 30))
+             font=("Arial", 13), bg="#0d1117", fg="#888888").pack(pady=(0, 30))
 
     def elegir_defensor(idx):
         # idx: posición en jugadores_sesion del jugador que defiende
@@ -598,10 +729,30 @@ def mostrar_seleccion_mapa(root):
     # Clásico: zona de construcción limitada al centro. Libre: el defensor construye en cualquier celda interior.
     _limpiar(root)
 
-    frame = tk.Frame(root, bg="#1a1a2e")
-    frame.pack(expand=True, fill="both")
+    # Canvas de fondo con imagen Menu.png
+    canvas_mapa = tk.Canvas(root, width=800, height=600)
+    canvas_mapa.pack(expand=True, fill="both")
+    try:
+        img = Image.open("Menu.png").resize((800, 600), Image.LANCZOS)
+        foto = ImageTk.PhotoImage(img)
+        canvas_mapa.create_image(0, 0, anchor="nw", image=foto)
+        canvas_mapa._fondo_ref = foto
+    except Exception:
+        canvas_mapa.configure(bg="#1a1a2e")
 
-    tk.Label( frame,text="Elige el mapa",font=("Arial", 22, "bold"),bg="#1a1a2e", fg="#e0e0e0").pack(pady=(80, 30))
+    # Borde azul más visible y fondo más oscuro para mayor contraste con el fondo del menú
+    frame = tk.Frame(root, bg="#0d1117",
+                     highlightbackground="#4a9aba",
+                     highlightthickness=3)
+    canvas_mapa.create_window(400, 300, window=frame, anchor="center")
+
+    # Botón pequeño de volumen en la esquina superior derecha
+    btn_vol = tk.Button(root, text="🔊", command=lambda: mostrar_volumen(root),
+        font=("Arial", 11), bg="#16213e", fg="#ffffff",
+        activebackground="#0f3460", width=3, bd=0, cursor="hand2")
+    canvas_mapa.create_window(770, 30, window=btn_vol)
+
+    tk.Label( frame,text="Elige el mapa",font=("Arial", 22, "bold"),bg="#0d1117", fg="#ffffff").pack(pady=(80, 30))
 
     def elegir_mapa(tipo):
         # Guarda el tipo de mapa elegido y abre la ventana del juego
@@ -866,6 +1017,16 @@ def mostrar_juego(root):
     canvas = tk.Canvas(contenedor, width=ancho_tablero, height=alto, bg="#2d2d2d")
     canvas.grid(row=0, column=0)
 
+    # Carga la imagen de fondo del escenario según el mapa elegido
+    try:
+        nombre_img = "Escenario Clasico.png" if mapa_sesion[0] == "clasico" else "Escenario Libre.png"
+        img_tablero = Image.open(nombre_img).resize((ancho_tablero, alto), Image.LANCZOS)
+        foto_tablero = ImageTk.PhotoImage(img_tablero)
+        canvas.create_image(0, 0, anchor="nw", image=foto_tablero)
+        canvas._fondo_tablero_ref = foto_tablero  # Referencia para evitar GC
+    except Exception:
+        pass  # Si no existe el archivo, el canvas queda con el color de fondo
+
     panel = tk.Frame(contenedor, width=ANCHO_PANEL, height=alto, bg="#16213e")
     panel.grid(row=0, column=1, sticky="ns")
 
@@ -878,6 +1039,15 @@ def mostrar_juego(root):
         activebackground="#0f3460", activeforeground="#ffffff",
         bd=0, cursor="hand2"
     ).pack(pady=4)
+
+    # Botón pequeño de volumen en la barra inferior (derecha)
+    tk.Button(
+        barra_inferior, text="🔊",
+        command=lambda: mostrar_volumen(ventana_juego),
+        font=("Arial", 11), bg="#16213e", fg="#ffffff",
+        activebackground="#0f3460", activeforeground="#ffffff",
+        width=3, bd=0, cursor="hand2"
+    ).pack(side="right", padx=8, pady=4)
 
     # ---- Contenido del panel ----
     tk.Label(panel, text="Fase de Construcción", font=("Arial", 12, "bold"),
@@ -1265,8 +1435,13 @@ def mostrar_juego(root):
             color = "#4a2f1f"  # Naranja oscuro para indicar al atacante dónde puede desplegar
 
         # ── Dibuja el fondo de la celda ──
-        canvas.create_rectangle(x1, y1, x2, y2, fill=color, outline="#444444",
-                                 tags=f"celda_{fila}_{col}")
+        # fill="" deja el interior transparente para que se vea el fondo de escenario;
+        # el outline="#444444" conserva la grilla visible.
+        canvas.create_rectangle(
+            x1, y1, x2, y2,
+            fill="", outline="#444444",
+            stipple="", tags=f"celda_{fila}_{col}"
+        )
 
         # ── Dibuja el texto centrado si hay ──
         # Se sube 3px respecto del centro para dejar espacio visual a la barra de vida inferior
@@ -1711,8 +1886,7 @@ def mostrar_juego(root):
         if vida_base[0] > 0 and (unidades_vivas or atacante_puede_comprar):
             ventana_juego.after(800, ciclo_combate)
 
-    # Sistema de victorias y rondas ############
-
+# Sistema de victorias y rondas ############
     def animacion_fin_ronda(ganador, callback):
         """
         Muestra una animación corta antes de registrar el resultado.
@@ -1921,12 +2095,7 @@ def mostrar_juego(root):
             lbl_estado_nueva.config(text="")  # Limpia cualquier mensaje de error previo
         # Botones de torres — uno por cada tipo definido en INFO_TORRES
         for clase_torre, info in INFO_TORRES.items():
-            tk.Button(
-                panel, text=f"{info['nombre']}\n${info['costo']}",
-                command=lambda c=clase_torre: seleccionar_elemento_nuevo(c),
-                font=("Arial", 10), bg=info["color"], fg="#ffffff",
-                activebackground="#333333", width=18, height=2, bd=0, cursor="hand2"
-            ).pack(pady=4)
+            tk.Button(panel, text=f"{info['nombre']}\n${info['costo']}",command=lambda c=clase_torre: seleccionar_elemento_nuevo(c),font=("Arial", 10), bg=info["color"], fg="#ffffff",activebackground="#333333", width=18, height=2, bd=0, cursor="hand2").pack(pady=4)
 
         tk.Label(panel, text="─────────────", bg="#16213e", fg="#444444").pack(pady=4)
 
