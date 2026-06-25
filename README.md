@@ -14,6 +14,7 @@ Juego de estrategia por turnos para dos jugadores desarrollado en Python con Tki
 Ejecutá el siguiente comando en la terminal antes de correr el juego:
 
 pip install pillow
+pip install pygame
 
 ## Ejecución
 Desde la carpeta raíz del proyecto, ejecutá:
