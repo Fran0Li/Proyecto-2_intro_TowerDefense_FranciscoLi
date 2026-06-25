@@ -2,8 +2,8 @@
     {
         "usuario": "Francisco",
         "contrasena": "1234",
-        "victorias_defensor": 0,
-        "victorias_atacante": 2
+        "victorias_defensor": 1,
+        "victorias_atacante": 3
     },
     {
         "usuario": "Leo",

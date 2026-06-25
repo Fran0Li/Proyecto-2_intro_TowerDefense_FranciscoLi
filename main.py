@@ -968,7 +968,8 @@ def mostrar_juego(root):
     unidades_activas = []    # Lista de objetos Unidad del atacante en el tablero
     dinero_atacante = [250]  # Dinero inicial del atacante para comprar tropas (ronda 1, sin bonos)
     turno_combate   = [0]    # Contador de turnos para activar habilidades cada 3 turnos
-    lbl_vida_base   = [None] # Referencia a la etiqueta de HP de la base (se crea en fase_ataque)
+    lbl_vida_base        = [None] # Referencia a la etiqueta de HP de la base (se crea en fase_ataque)
+    lbl_dinero_atac_ref  = [None] # Referencia al label de dinero del atacante; ciclo_combate() lo actualiza en tiempo real
     bonus_kills_ronda = [0]  # Bono acumulado por kills del defensor; se suma en ciclo_combate y se usa en reiniciar_ronda
 
     # Información visual y de costo de cada tipo de torre
@@ -1198,6 +1199,8 @@ def mostrar_juego(root):
         lbl_dinero_atac = tk.Label(panel, text=f"Dinero: {dinero_atacante[0]}",
                                     font=("Arial", 12, "bold"), bg="#16213e", fg="#6bff8e")
         lbl_dinero_atac.pack(pady=(0, 10))
+        # Guarda la referencia para que ciclo_combate() actualice el dinero en tiempo real
+        lbl_dinero_atac_ref[0] = lbl_dinero_atac
 
         lbl_seleccion_atac = tk.Label(panel, text="Elegí una unidad",
                                        font=("Arial", 9), bg="#16213e", fg="#888888", wraplength=180)
@@ -1875,9 +1878,15 @@ def mostrar_juego(root):
                 dibujar_celda(pos[0], pos[1])
         # 7. Actualiza el contador de turno
         turno_combate[0] += 1
-        # 8. Actualiza la etiqueta de vida de la base en el panel
+        # 8. Actualiza las etiquetas de vida de la base y dinero del atacante en el panel
         if lbl_vida_base[0]:
             lbl_vida_base[0].config(text=f"Base: {vida_base[0]} HP")
+        # Refleja el dinero actual del atacante después de compras y reembolsos del turno
+        if lbl_dinero_atac_ref[0]:
+            try:
+                lbl_dinero_atac_ref[0].config(text=f"Dinero: {dinero_atacante[0]}")
+            except Exception:
+                pass
         # 9. Evalúa si la ronda sigue activa ANTES de verificar fin
         unidades_vivas = [u for u in unidades_activas if u.activa]
         costo_minimo = min(info["costo"] for info in INFO_UNIDADES.values())
@@ -2000,9 +2009,10 @@ def mostrar_juego(root):
         unidades_colocadas.clear()    # Borra las posiciones registradas durante el despliegue
         unidad_seleccionada[0] = None # El atacante empieza sin ninguna unidad preseleccionada
         turno_combate[0] = 0          # El ciclo de combate vuelve a arrancar desde el turno 0
-        lbl_vida_base[0] = None       # El label fue destruido con el panel viejo; se limpia
+        lbl_vida_base[0]       = None # El label fue destruido con el panel viejo; se limpia
                                       # para que ciclo_combate() no intente actualizarlo antes
                                       # de que fase_ataque() lo recree en la nueva ronda
+        lbl_dinero_atac_ref[0] = None # Ídem: el label de dinero también fue destruido con el panel
 
         # Reconstruye el panel lateral completo para la nueva ronda
         for widget in panel.winfo_children():
