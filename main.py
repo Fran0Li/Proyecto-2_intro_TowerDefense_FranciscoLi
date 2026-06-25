@@ -1875,15 +1875,16 @@ def mostrar_juego(root):
                 dibujar_celda(pos[0], pos[1])
         # 7. Actualiza el contador de turno
         turno_combate[0] += 1
-        # 8. Verifica si la ronda terminó
-        verificar_fin_ronda()
-        # 9. Actualiza la etiqueta de vida de la base en el panel
+        # 8. Actualiza la etiqueta de vida de la base en el panel
         if lbl_vida_base[0]:
             lbl_vida_base[0].config(text=f"Base: {vida_base[0]} HP")
-        # 10. Si la ronda sigue activa, programa el siguiente turno
+        # 9. Evalúa si la ronda sigue activa ANTES de verificar fin
         unidades_vivas = [u for u in unidades_activas if u.activa]
         costo_minimo = min(info["costo"] for info in INFO_UNIDADES.values())
         atacante_puede_comprar = dinero_atacante[0] >= costo_minimo
+        # 11. Verifica si la ronda terminó (ya con el dinero actualizado)
+        verificar_fin_ronda()
+        # 12. Si la ronda sigue activa, programa el siguiente turno
         if vida_base[0] > 0 and (unidades_vivas or atacante_puede_comprar):
             ventana_juego.after(800, ciclo_combate)
 
