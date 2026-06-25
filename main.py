@@ -1004,6 +1004,11 @@ def mostrar_juego(root):
         """
         ventana_juego.title("Asedio y defensa — Fase de ataque")
 
+        # Limpia el preview de alcance que pudo haber quedado de la
+        # fase de construcción antes de que el atacante coloque unidades
+        canvas.unbind("<Motion>")
+        canvas.delete("preview_alcance")
+
         # Destruye todos los widgets del panel del defensor; el canvas no se toca
         # para que torres, muros y base queden visibles durante el despliegue.
         for widget in panel.winfo_children():
@@ -1116,7 +1121,15 @@ def mostrar_juego(root):
                 lbl_estado_atac.config(text="Solo podés desplegar en el borde del tablero.")
                 return
 
-            if (fila, col) in unidades_colocadas:
+            # Verifica si hay una unidad activa en esa celda en este momento.
+            # No se usa unidades_colocadas porque nunca se limpia durante el combate
+            # cuando una unidad muere o se mueve, lo que reportaría celdas como
+            # ocupadas aunque ya estén libres.
+            celda_ocupada = any(
+                u.activa and u.fila == fila and u.col == col
+                for u in unidades_activas
+            )
+            if celda_ocupada:
                 lbl_estado_atac.config(text="Ya hay una unidad en esa celda.")
                 return
 
@@ -1470,6 +1483,7 @@ def mostrar_juego(root):
                     dinero_atacante[0] += 20  # Bonus extra por destruir la torre
                 unidad.atacando = True                      # Activa frame de ataque en el sprite
                 frame_ataque[0] = 1 - frame_ataque[0]      # Alterna entre frame 0 y 1
+                dibujar_celda(unidad.fila, unidad.col)     # Fuerza el cambio de frame del sprite
                 break
             elif (nueva_fila, nueva_col) in muros_colocados:
                 # Ataca el muro en lugar de moverse
@@ -1478,6 +1492,9 @@ def mostrar_juego(root):
                 if not muro.activo:
                     del muros_colocados[(nueva_fila, nueva_col)]
                 dibujar_celda(nueva_fila, nueva_col)
+                unidad.atacando = True                      # Activa frame de ataque en el sprite
+                frame_ataque[0] = 1 - frame_ataque[0]      # Alterna entre frame 0 y 1
+                dibujar_celda(unidad.fila, unidad.col)     # Fuerza el cambio de frame del sprite
                 break
             elif nueva_fila == fila_base and nueva_col == col_base:
                 # Llegó a la base: la ataca y termina
