@@ -482,39 +482,29 @@ def mostrar_login(root, numero_jugador=1):
     except Exception:
         canvas_login.configure(bg="#1a1a2e")
 
-    # Borde azul más visible y fondo más oscuro para mayor contraste con el fondo del menú
-    frame = tk.Frame(root, bg="#0d1117",
-                     highlightbackground="#4a9aba",
-                     highlightthickness=3)
-    canvas_login.create_window(400, 300, window=frame, anchor="center")
-
-    # Botón pequeño de volumen en la esquina superior derecha
     btn_vol = tk.Button(root, text="🔊", command=lambda: mostrar_volumen(root),
         font=("Arial", 11), bg="#16213e", fg="#ffffff",
         activebackground="#0f3460", width=3, bd=0, cursor="hand2")
     canvas_login.create_window(770, 30, window=btn_vol)
 
-    # Título que indica qué jugador está ingresando
-    tk.Label( frame,text=f"Jugador {numero_jugador} — Iniciar sesión",font=("Arial", 22, "bold"),bg="#0d1117", fg="#ffffff").pack(pady=(60, 20))
+    canvas_login.create_text(400, 80,
+        text=f"Jugador {numero_jugador} — Iniciar sesión",
+        font=("Arial", 22, "bold"), fill="#ffffff")
 
-    #  Espacio usuario
-    tk.Label(frame,text="Usuario:",font=("Arial", 12),bg="#0d1117",fg="#ffffff").pack()
+    canvas_login.create_text(400, 160, text="Usuario:",
+        font=("Arial", 12), fill="#ffffff")
+    entry_usuario = tk.Entry(root, font=("Arial", 12), width=25)
+    canvas_login.create_window(400, 190, window=entry_usuario)
 
-    # Entry es el widget de Tkinter para ingresar texto
-    entry_usuario = tk.Entry(frame, font=("Arial", 12), width=25)
-    entry_usuario.pack(pady=(4, 12))
+    canvas_login.create_text(400, 230, text="Contraseña:",
+        font=("Arial", 12), fill="#ffffff")
+    entry_contrasena = tk.Entry(root, font=("Arial", 12), width=25, show="*")
+    canvas_login.create_window(400, 260, window=entry_contrasena)
 
-    #  Espacio contraseña
-    tk.Label(frame, text="Contraseña:",  font=("Arial", 12), bg="#0d1117",fg="#ffffff").pack()
-    # show="*" oculta el texto con asteriscos como cualquier espacio de contraseña
-    entry_contrasena = tk.Entry(frame, font=("Arial", 12), width=25, show="*")
-    entry_contrasena.pack(pady=(4, 20))
-    # Etiqueta para mensajes de error o éxito
-    # Se actualiza con .config(text=...) desde las funciones de login/registro
-    lbl_mensaje = tk.Label(frame,text="", font=("Arial", 10), bg="#0d1117",fg="#ff6b6b" ) # Rojo para errores
-    lbl_mensaje.pack(pady=(0, 10))
+    lbl_mensaje = tk.Label(root, text="", font=("Arial", 10),
+        bg="#0d1117", fg="#ff6b6b")
+    canvas_login.create_window(400, 300, window=lbl_mensaje)
 
-    #  Función interna de login 
     def intentar_login():
         #Lee los campos y verifica las credenciales.
         #Si son correctas guarda el jugador en jugadores_sesion.
@@ -566,10 +556,23 @@ def mostrar_login(root, numero_jugador=1):
             return
 
         lbl_mensaje.config(text="¡Registro exitoso! Ya podés iniciar sesión.", fg="#6bff8e")
-    #  Botones 
-    _boton(frame, "Iniciar sesión", intentar_login)
-    _boton(frame, "Registrarse",    intentar_registro)
-    _boton(frame, "Volver al menú", lambda: mostrar_menu(root))
+    btn_login = tk.Button(root, text="Iniciar sesión",
+        command=intentar_login, font=("Arial", 13),
+        bg="#0a0a14", fg="#ffffff", activebackground="#0f3460",
+        width=20, height=2, bd=0, cursor="hand2")
+    canvas_login.create_window(400, 360, window=btn_login)
+
+    btn_registro = tk.Button(root, text="Registrarse",
+        command=intentar_registro, font=("Arial", 13),
+        bg="#0a0a14", fg="#ffffff", activebackground="#0f3460",
+        width=20, height=2, bd=0, cursor="hand2")
+    canvas_login.create_window(400, 430, window=btn_registro)
+
+    btn_menu = tk.Button(root, text="Volver al menú",
+        command=lambda: mostrar_menu(root), font=("Arial", 13),
+        bg="#0a0a14", fg="#ffffff", activebackground="#0f3460",
+        width=20, height=2, bd=0, cursor="hand2")
+    canvas_login.create_window(400, 500, window=btn_menu)
 
 
 #  VENTANA SELECCIÓN DE FACCIONES
@@ -596,74 +599,58 @@ def mostrar_facciones(root, numero_jugador=1):
     except Exception:
         canvas_facciones.configure(bg="#1a1a2e")
 
-    # Borde azul más visible y fondo más oscuro para mayor contraste con el fondo del menú
-    frame = tk.Frame(root, bg="#0d1117",
-                     highlightbackground="#4a9aba",
-                     highlightthickness=3)
-    canvas_facciones.create_window(400, 300, window=frame, anchor="center")
-
-    # Botón pequeño de volumen en la esquina superior derecha
     btn_vol = tk.Button(root, text="🔊", command=lambda: mostrar_volumen(root),
-        font=("Arial", 11), bg="#16213e", fg="#ffffff",
+        font=("Arial", 11), bg="#0a0a14", fg="#ffffff",
         activebackground="#0f3460", width=3, bd=0, cursor="hand2")
     canvas_facciones.create_window(770, 30, window=btn_vol)
 
-    # Título indicando qué jugador está eligiendo
-    tk.Label(frame,text=f"Jugador {numero_jugador} — Elige tu facción",font=("Arial", 22, "bold"),bg="#0d1117",fg="#ffffff").pack(pady=(60, 10))
+    canvas_facciones.create_text(400, 80,
+        text=f"Jugador {numero_jugador} — Elige tu facción",
+        font=("Arial", 22, "bold"), fill="#ffffff")
 
-    # Muestra qué eligió el jugador anterior si ya eligió
     if numero_jugador == 2 and facciones_sesion[0]:
-        tk.Label(frame,text=f"Jugador 1 eligió: {facciones_sesion[0]}",font=("Arial", 11),bg="#0d1117",fg="#888888").pack(pady=(0, 20))
+        canvas_facciones.create_text(400, 125,
+            text=f"Jugador 1 eligió: {facciones_sesion[0]}",
+            font=("Arial", 11), fill="#888888")
 
-    # Etiqueta para mensajes de error
-    lbl_mensaje = tk.Label(frame,text="",font=("Arial", 10),bg="#0d1117",fg="#ff6b6b")
-    lbl_mensaje.pack(pady=(0, 10))
+    lbl_mensaje = tk.Label(root, text="", font=("Arial", 10),
+        bg="#0d1117", fg="#ff6b6b")
+    canvas_facciones.create_window(400, 160, window=lbl_mensaje)
 
-    # Datos de cada facción: nombre, color del botón, descripción
-    facciones = [
-        ("Medieval",   "#4a3728", "Castillos, caballeros y ballestas"),
-        ("Futurista",  "#0d3b4f", "Tecnología, lásers y drones"),
-        ("Acuático",   "#0d3b4f", "Arrecifes, corrientes y criaturas marinas"),
-    ]
-
-    # Colores específicos por facción para diferenciarlos visualmente (temporal)
-    colores = {
-        "Medieval":  "#6b4c3b",
-        "Futurista": "#1b6ca8",
-        "Acuático":  "#0e7490",
-    }
+    colores = {"Medieval": "#6b4c3b", "Futurista": "#1b6ca8", "Acuático": "#0e7490"}
 
     def elegir_faccion(faccion):
-        
         #Registra la facción elegida por el jugador actual.
         #Valida que los dos jugadores no elijan la misma facción.
-        #Parámetros:
-        #    faccion: nombre de la facción elegida
-        
-        # Jugador 2 no puede elegir la misma facción que jugador 1
         if numero_jugador == 2 and faccion == facciones_sesion[0]:
             lbl_mensaje.config(text="Esa facción ya fue elegida por el Jugador 1.")
             return
-
-        # Guarda la facción en la posición correcta
         facciones_sesion[numero_jugador - 1] = faccion
-
         if numero_jugador == 1:
-            # Si es jugador 1, pasa a jugador 2
             mostrar_facciones(root, 2)
         else:
-            # Ambos eligieron facción; ahora eligen quién defiende y quién ataca
             mostrar_roles(root)
 
-    # Crea un botón por cada facción
-    for nombre, _, descripcion in facciones:
-        # Frame interno con el mismo fondo oscuro para que coincida con el frame padre
-        btn_frame = tk.Frame(frame, bg="#1a1a2e")
-        btn_frame.pack(pady=6)
-        #lambda captura nombre correcto
-        tk.Button(btn_frame,text=f"{nombre}\n{descripcion}",command=lambda f=nombre: elegir_faccion(f),font=("Arial", 12),bg=colores[nombre], fg="#ffffff",activebackground="#333333",width=30,height=3,bd=0,cursor="hand2").pack()#color unico por faccion
+    facciones = [
+        ("Medieval",  "Castillos, caballeros y ballestas"),
+        ("Futurista", "Tecnología, lásers y drones"),
+        ("Acuático",  "Arrecifes, corrientes y criaturas marinas"),
+    ]
+    posiciones_y = [220, 310, 400]
+    for (nombre, descripcion), y in zip(facciones, posiciones_y):
+        btn = tk.Button(root,
+            text=f"{nombre}\n{descripcion}",
+            command=lambda f=nombre: elegir_faccion(f),
+            font=("Arial", 12), bg=colores[nombre], fg="#ffffff",
+            activebackground="#333333", width=30, height=2,
+            bd=0, cursor="hand2")
+        canvas_facciones.create_window(400, y, window=btn)
 
-    _boton(frame, "Volver al menú", lambda: mostrar_menu(root))
+    btn_menu = tk.Button(root, text="Volver al menú",
+        command=lambda: mostrar_menu(root), font=("Arial", 13),
+        bg="#0a0a14", fg="#ffffff", activebackground="#0f3460",
+        width=20, height=2, bd=0, cursor="hand2")
+    canvas_facciones.create_window(400, 490, window=btn_menu)
 
 #  VENTANA SELECCIÓN DE ROLES
 ########################################
@@ -688,22 +675,17 @@ def mostrar_roles(root):
     except Exception:
         canvas_roles.configure(bg="#1a1a2e")
 
-    # Borde azul más visible y fondo más oscuro para mayor contraste con el fondo del menú
-    frame = tk.Frame(root, bg="#0d1117",
-                     highlightbackground="#4a9aba",
-                     highlightthickness=3)
-    canvas_roles.create_window(400, 300, window=frame, anchor="center")
-
-    # Botón pequeño de volumen en la esquina superior derecha
     btn_vol = tk.Button(root, text="🔊", command=lambda: mostrar_volumen(root),
-        font=("Arial", 11), bg="#16213e", fg="#ffffff",
+        font=("Arial", 11), bg="#0a0a14", fg="#ffffff",
         activebackground="#0f3460", width=3, bd=0, cursor="hand2")
     canvas_roles.create_window(770, 30, window=btn_vol)
 
-    tk.Label(frame, text="Asignación de roles",
-             font=("Arial", 22, "bold"), bg="#0d1117", fg="#ffffff").pack(pady=(60, 10))
-    tk.Label(frame, text="¿Quién jugará como Defensor?",
-             font=("Arial", 13), bg="#0d1117", fg="#888888").pack(pady=(0, 30))
+    canvas_roles.create_text(400, 100,
+        text="Asignación de roles",
+        font=("Arial", 22, "bold"), fill="#ffffff")
+    canvas_roles.create_text(400, 150,
+        text="¿Quién jugará como Defensor?",
+        font=("Arial", 13), fill="#888888")
 
     def elegir_defensor(idx):
         # idx: posición en jugadores_sesion del jugador que defiende
@@ -714,11 +696,25 @@ def mostrar_roles(root):
     j1 = jugadores_sesion[0]["usuario"]
     j2 = jugadores_sesion[1]["usuario"]
 
-    tk.Button(frame, text=f"{j1}\n🛡  Defensor",command=lambda: elegir_defensor(0),font=("Arial", 13), bg="#1d4d3a", fg="#ffffff",activebackground="#2a6b4f", width=22, height=2, bd=0, cursor="hand2").pack(pady=8)
+    btn1 = tk.Button(root, text=f"{j1}\n🛡  Defensor",
+        command=lambda: elegir_defensor(0),
+        font=("Arial", 13), bg="#1d4d3a", fg="#ffffff",
+        activebackground="#2a6b4f", width=22, height=2,
+        bd=0, cursor="hand2")
+    canvas_roles.create_window(400, 250, window=btn1)
 
-    tk.Button(frame, text=f"{j2}\n🛡  Defensor",command=lambda: elegir_defensor(1),font=("Arial", 13), bg="#1d4d3a", fg="#ffffff",activebackground="#2a6b4f", width=22, height=2, bd=0, cursor="hand2").pack(pady=8)
+    btn2 = tk.Button(root, text=f"{j2}\n🛡  Defensor",
+        command=lambda: elegir_defensor(1),
+        font=("Arial", 13), bg="#1d4d3a", fg="#ffffff",
+        activebackground="#2a6b4f", width=22, height=2,
+        bd=0, cursor="hand2")
+    canvas_roles.create_window(400, 340, window=btn2)
 
-    _boton(frame, "Volver al menú", lambda: mostrar_menu(root))
+    btn_menu = tk.Button(root, text="Volver al menú",
+        command=lambda: mostrar_menu(root), font=("Arial", 13),
+        bg="#0a0a14", fg="#ffffff", activebackground="#0f3460",
+        width=20, height=2, bd=0, cursor="hand2")
+    canvas_roles.create_window(400, 430, window=btn_menu)
 
 
 #  VENTANA SELECCIÓN DE MAPA
@@ -740,28 +736,33 @@ def mostrar_seleccion_mapa(root):
     except Exception:
         canvas_mapa.configure(bg="#1a1a2e")
 
-    # Borde azul más visible y fondo más oscuro para mayor contraste con el fondo del menú
-    frame = tk.Frame(root, bg="#0d1117",
-                     highlightbackground="#4a9aba",
-                     highlightthickness=3)
-    canvas_mapa.create_window(400, 300, window=frame, anchor="center")
-
-    # Botón pequeño de volumen en la esquina superior derecha
     btn_vol = tk.Button(root, text="🔊", command=lambda: mostrar_volumen(root),
-        font=("Arial", 11), bg="#16213e", fg="#ffffff",
+        font=("Arial", 11), bg="#0a0a14", fg="#ffffff",
         activebackground="#0f3460", width=3, bd=0, cursor="hand2")
     canvas_mapa.create_window(770, 30, window=btn_vol)
 
-    tk.Label( frame,text="Elige el mapa",font=("Arial", 22, "bold"),bg="#0d1117", fg="#ffffff").pack(pady=(80, 30))
+    canvas_mapa.create_text(400, 120,
+        text="Elige el mapa",
+        font=("Arial", 22, "bold"), fill="#ffffff")
 
     def elegir_mapa(tipo):
         # Guarda el tipo de mapa elegido y abre la ventana del juego
         mapa_sesion[0] = tipo
         mostrar_juego(root)
 
-    tk.Button(frame,text="Mapa Clásico",command=lambda: elegir_mapa("clasico"),font=("Arial", 14),bg="#1d4d3a",fg="#ffffff",activebackground="#333333",width=20,height=2,bd=0,cursor="hand2").pack(pady=10)
+    btn_clasico = tk.Button(root, text="Mapa Clásico",
+        command=lambda: elegir_mapa("clasico"),
+        font=("Arial", 14), bg="#1d4d3a", fg="#ffffff",
+        activebackground="#333333", width=20, height=2,
+        bd=0, cursor="hand2")
+    canvas_mapa.create_window(400, 260, window=btn_clasico)
 
-    tk.Button(frame,text="Mapa Libre",command=lambda: elegir_mapa("libre"),font=("Arial", 14), bg="#4a3728",fg="#ffffff",activebackground="#333333",width=20, height=2,bd=0,cursor="hand2").pack(pady=10)
+    btn_libre = tk.Button(root, text="Mapa Libre",
+        command=lambda: elegir_mapa("libre"),
+        font=("Arial", 14), bg="#4a3728", fg="#ffffff",
+        activebackground="#333333", width=20, height=2,
+        bd=0, cursor="hand2")
+    canvas_mapa.create_window(400, 360, window=btn_libre)
 
 
 #  VENTANA RANKING
