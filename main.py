@@ -1062,16 +1062,18 @@ def mostrar_juego(root):
         bd=0, cursor="hand2"
     ).pack(pady=4)
 
-    # Botón pequeño de volumen en la barra inferior (derecha)
-    tk.Button(
-        barra_inferior, text="🔊",
-        command=lambda: mostrar_volumen(ventana_juego),
-        font=("Arial", 11), bg="#16213e", fg="#ffffff",
-        activebackground="#0f3460", activeforeground="#ffffff",
-        width=3, bd=0, cursor="hand2"
-    ).pack(side="right", padx=8, pady=4)
-
     # ---- Contenido del panel ----
+    # Botón de volumen en la esquina superior del panel lateral;
+    # usa el singleton de mostrar_volumen para no abrir ventanas duplicadas
+    tk.Button(
+        panel, text="🔊 Volumen",
+        command=lambda: mostrar_volumen(ventana_juego),
+        font=("Arial", 9), bg="#0d1117", fg="#ffffff",
+        activebackground="#0f3460", activeforeground="#ffffff",
+        bd=0, cursor="hand2"
+    ).pack(anchor="ne", padx=8, pady=(8, 0))
+
+    # Título de la fase debajo del botón de volumen
     tk.Label(panel, text="Fase de Construcción", font=("Arial", 12, "bold"),
              bg="#16213e", fg="#e0e0e0").pack(pady=(15, 5))
 
