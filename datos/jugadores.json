@@ -10,5 +10,11 @@
         "contrasena": "Messi",
         "victorias_defensor": 1,
         "victorias_atacante": 1
+    },
+    {
+        "usuario": "Bonu",
+        "contrasena": "1234",
+        "victorias_defensor": 0,
+        "victorias_atacante": 0
     }
 ]

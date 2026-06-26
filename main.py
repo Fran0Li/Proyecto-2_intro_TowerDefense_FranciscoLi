@@ -449,8 +449,11 @@ def mostrar_menu(root):
 
     canvas_menu.create_text(400, 150, text="Asedio y defensa",
         font=("Arial", 28, "bold"), fill="#ffffff")
+    # Sombra + texto blanco para legibilidad del subtítulo sobre el fondo
+    canvas_menu.create_text(402, 197, text="Juego de estrategia",
+        font=("Arial", 12), fill="#000000")
     canvas_menu.create_text(400, 195, text="Juego de estrategia",
-        font=("Arial", 12), fill="#cccccc")
+        font=("Arial", 12), fill="#ffffff")
 
     btn_jugar   = tk.Button(root, text="Jugar",   command=lambda: mostrar_login(root),
                             font=("Arial", 14), bg="#16213e", fg="#e0e0e0",
@@ -519,7 +522,10 @@ def mostrar_login(root, numero_jugador=1):
         text=f"Jugador {numero_jugador} — Iniciar sesión",
         font=("Arial", 22, "bold"), fill="#ffffff")
 
-    # Label USUARIO flotando sobre el fondo natural del canvas
+    # Sombra + texto blanco para el label USUARIO
+    canvas_login.create_text(285, 170,
+        text="USUARIO", anchor="w",
+        font=("Arial", 9, "bold"), fill="#000000")
     canvas_login.create_text(283, 168,
         text="USUARIO", anchor="w",
         font=("Arial", 9, "bold"), fill="#ffffff")
@@ -532,7 +538,10 @@ def mostrar_login(root, numero_jugador=1):
         relief="flat", highlightthickness=0, bd=4)
     canvas_login.create_window(400, 192, window=entry_usuario)
 
-    # Label CONTRASEÑA
+    # Sombra + texto blanco para el label CONTRASEÑA
+    canvas_login.create_text(285, 230,
+        text="CONTRASEÑA", anchor="w",
+        font=("Arial", 9, "bold"), fill="#000000")
     canvas_login.create_text(283, 228,
         text="CONTRASEÑA", anchor="w",
         font=("Arial", 9, "bold"), fill="#ffffff")
@@ -637,14 +646,22 @@ def mostrar_facciones(root, numero_jugador=1):
         activebackground="#0f3460", width=3, bd=0, cursor="hand2")
     canvas_facciones.create_window(770, 30, window=btn_vol)
 
+    # Muestra el nombre real del jugador en lugar de "Jugador N"
+    nombre_actual = jugadores_sesion[numero_jugador - 1]["usuario"]
     canvas_facciones.create_text(400, 80,
-        text=f"Jugador {numero_jugador} — Elige tu facción",
+        text=f"{nombre_actual} — Elige tu facción",
         font=("Arial", 22, "bold"), fill="#ffffff")
 
     if numero_jugador == 2 and facciones_sesion[0]:
+        # Muestra el nombre real del jugador 1 en vez de "Jugador 1"
+        nombre_j1 = jugadores_sesion[0]["usuario"]
+        # Sombra + texto claro para que el subtítulo se lea sobre el fondo
+        canvas_facciones.create_text(402, 127,
+            text=f"{nombre_j1} eligió: {facciones_sesion[0]}",
+            font=("Arial", 11), fill="#000000")
         canvas_facciones.create_text(400, 125,
-            text=f"Jugador 1 eligió: {facciones_sesion[0]}",
-            font=("Arial", 11), fill="#888888")
+            text=f"{nombre_j1} eligió: {facciones_sesion[0]}",
+            font=("Arial", 11), fill="#e0e0e0")
 
     lbl_mensaje = tk.Label(root, text="", font=("Arial", 10),
         bg="#0d1117", fg="#ff6b6b")
@@ -656,7 +673,9 @@ def mostrar_facciones(root, numero_jugador=1):
         #Registra la facción elegida por el jugador actual.
         #Valida que los dos jugadores no elijan la misma facción.
         if numero_jugador == 2 and faccion == facciones_sesion[0]:
-            lbl_mensaje.config(text="Esa facción ya fue elegida por el Jugador 1.")
+            # Muestra el nombre real del jugador 1 en el mensaje de error
+            nombre_j1 = jugadores_sesion[0]["usuario"]
+            lbl_mensaje.config(text=f"Esa facción ya fue elegida por {nombre_j1}.")
             return
         facciones_sesion[numero_jugador - 1] = faccion
         if numero_jugador == 1:
@@ -716,9 +735,6 @@ def mostrar_roles(root):
     canvas_roles.create_text(400, 100,
         text="Asignación de roles",
         font=("Arial", 22, "bold"), fill="#ffffff")
-    canvas_roles.create_text(400, 150,
-        text="¿Quién jugará como Defensor?",
-        font=("Arial", 13), fill="#888888")
 
     def elegir_defensor(idx):
         # idx: posición en jugadores_sesion del jugador que defiende
