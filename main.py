@@ -1264,8 +1264,66 @@ def mostrar_juego(root):
         activebackground="#333333", width=18, height=2, bd=0, cursor="hand2"
     ).pack(pady=4)
 
+    # ── Mejoras de torres y muros ──────────────────────────────────────────
+    tk.Label(panel, text="─── Mejorar ───", bg="#16213e", fg="#555577",
+             font=("Arial", 8)).pack(pady=(8, 2))
+
+    def hacer_mejora_defensor(clase, costo_base, lbl_ref):
+        """Selecciona el modo mejora: el próximo clic en el tablero mejora esa estructura."""
+        elemento_seleccionado[0] = ("mejora", clase, costo_base, lbl_ref)  # La tupla le indica a al_hacer_clic() qué acción ejecutar
+        lbl_seleccion.config(text=f"Clic en una {clase.__name__ if clase != 'muro' else 'Muro'} para mejorarla")
+        lbl_estado.config(text="")
+
+    for clase_torre, info in INFO_TORRES.items():
+        costo_nv2 = int(info["costo"] * 0.5)  # Nv2 cuesta la mitad del precio de construcción
+        tk.Button(panel,
+            text=f"⬆ {info['nombre'][:8]}  Nv2 ${costo_nv2}",
+            command=lambda c=clase_torre, cb=info["costo"]: hacer_mejora_defensor(c, cb, lbl_seleccion),  # c y cb se capturan por valor para evitar el bug de closure del for
+            font=("Arial", 8), bg="#1a2a1a", fg="#aaffaa",
+            activebackground="#0f3460", width=18, bd=0,
+            cursor="hand2", relief="flat").pack(pady=2)
+
+    costo_muro_nv2 = int(30 * 0.5)  # 30 es el costo base fijo del muro definido en INFO_MURO
+    tk.Button(panel,
+        text=f"⬆ Muro  Nv2 ${costo_muro_nv2}",
+        command=lambda: hacer_mejora_defensor("muro", 30, lbl_seleccion),
+        font=("Arial", 8), bg="#1a2a1a", fg="#aaffaa",
+        activebackground="#0f3460", width=18, bd=0,
+        cursor="hand2", relief="flat").pack(pady=2)
+
+    # ── Evolucionar base ────────────────────────────────────────────────────
+    tk.Label(panel, text="─── Base ───", bg="#16213e", fg="#555577",
+             font=("Arial", 8)).pack(pady=(6, 2))
+
+    def evolucionar_base():
+        if base_evolucionada[0]:  # Solo se permite una evolución por ronda
+            lbl_estado.config(text="La base ya fue evolucionada esta ronda.")
+            return
+        if base_pos[0] is None:
+            lbl_estado.config(text="Primero colocá la base en el tablero.")
+            return
+        if dinero_defensor[0] < 120:
+            lbl_estado.config(text="Sin dinero. Evolucionar cuesta $120.")
+            return
+        dinero_defensor[0] -= 120              # Descuenta el costo de la evolución
+        vida_base[0] = int(vida_base[0] * 1.05)  # +5 % sobre el HP actual (no el máximo original)
+        escudo_base[0] = 80                    # HP inicial del escudo; se va agotando al absorber daño
+        base_evolucionada[0] = True            # Bloquea una segunda evolución en esta misma ronda
+        lbl_dinero.config(text=f"Dinero: ${dinero_defensor[0]}")
+        lbl_escudo.config(text=f"🛡 Escudo: {escudo_base[0]} HP")
+        lbl_estado.config(text="¡Base evolucionada! Escudo activo.", fg="#4a9aba")
+        btn_evolucionar_base.config(state="disabled")  # Impide presionar el botón una segunda vez
+
+    btn_evolucionar_base = tk.Button(panel,
+        text="⬆ Evolucionar base\n+5% vida + Escudo  $120",
+        command=evolucionar_base,
+        font=("Arial", 8), bg="#1a2a3a", fg="#aaaaff",
+        activebackground="#0f3460", width=18, height=2,
+        bd=0, cursor="hand2", relief="flat")
+    btn_evolucionar_base.pack(pady=(0, 4))
+
     # Separador antes del botón Listo
-    tk.Label(panel, text="─────────────", bg="#16213e", fg="#444444").pack(pady=(15, 4))
+    tk.Label(panel, text="─────────────", bg="#16213e", fg="#444444").pack(pady=(8, 4))
 
     def fase_ataque():
         """
@@ -2235,10 +2293,65 @@ def mostrar_juego(root):
 
         tk.Label(panel, text="─────────────", bg="#16213e", fg="#444444").pack(pady=4)
 
-        # Botón del muro
         tk.Button(panel, text=f"Muro\n${INFO_MURO['costo']}",command=lambda: seleccionar_elemento_nuevo("muro"),font=("Arial", 10), bg=INFO_MURO["color"], fg="#ffffff",activebackground="#333333", width=18, height=2, bd=0, cursor="hand2").pack(pady=4)
 
-        tk.Label(panel, text="─────────────", bg="#16213e", fg="#444444").pack(pady=(15, 4))
+        # ── Mejoras ronda siguiente ──────────────────────────────────────────
+        tk.Label(panel, text="─── Mejorar ───", bg="#16213e", fg="#555577",
+                 font=("Arial", 8)).pack(pady=(8, 2))
+
+        def hacer_mejora_nueva(clase, costo_base):
+            elemento_seleccionado[0] = ("mejora", clase, costo_base, lbl_seleccion_nueva)  # La tupla le indica a al_hacer_clic() qué acción ejecutar
+            lbl_seleccion_nueva.config(text=f"Clic en estructura para mejorarla")
+            lbl_estado_nueva.config(text="")
+
+        for clase_torre, info in INFO_TORRES.items():
+            costo_nv2 = int(info["costo"] * 0.5)  # Nv2 cuesta la mitad del precio de construcción
+            tk.Button(panel,
+                text=f"⬆ {info['nombre'][:8]}  Nv2 ${costo_nv2}",
+                command=lambda c=clase_torre, cb=info["costo"]: hacer_mejora_nueva(c, cb),  # c y cb se capturan por valor para evitar el bug de closure del for
+                font=("Arial", 8), bg="#1a2a1a", fg="#aaffaa",
+                activebackground="#0f3460", width=18, bd=0,
+                cursor="hand2", relief="flat").pack(pady=2)
+
+        costo_muro_nv2 = int(30 * 0.5)  # 30 es el costo base fijo del muro definido en INFO_MURO
+        tk.Button(panel,
+            text=f"⬆ Muro  Nv2 ${costo_muro_nv2}",
+            command=lambda: hacer_mejora_nueva("muro", 30),
+            font=("Arial", 8), bg="#1a2a1a", fg="#aaffaa",
+            activebackground="#0f3460", width=18, bd=0,
+            cursor="hand2", relief="flat").pack(pady=2)
+
+        tk.Label(panel, text="─── Base ───", bg="#16213e", fg="#555577",
+                 font=("Arial", 8)).pack(pady=(6, 2))
+
+        def evolucionar_base_nueva():
+            if base_evolucionada[0]:  # Solo se permite una evolución por ronda
+                lbl_estado_nueva.config(text="La base ya fue evolucionada esta ronda.")
+                return
+            if base_pos[0] is None:
+                lbl_estado_nueva.config(text="Primero colocá la base en el tablero.")
+                return
+            if dinero_defensor[0] < 120:
+                lbl_estado_nueva.config(text="Sin dinero. Evolucionar cuesta $120.")
+                return
+            dinero_defensor[0] -= 120              # Descuenta el costo de la evolución
+            vida_base[0] = int(vida_base[0] * 1.05)  # +5 % sobre el HP actual (no el máximo original)
+            escudo_base[0] = 80                    # HP inicial del escudo; se va agotando al absorber daño
+            base_evolucionada[0] = True            # Bloquea una segunda evolución en esta misma ronda
+            lbl_dinero_nueva.config(text=f"Dinero: ${dinero_defensor[0]}")
+            lbl_escudo.config(text=f"🛡 Escudo: {escudo_base[0]} HP")
+            lbl_estado_nueva.config(text="¡Base evolucionada! Escudo activo.", fg="#4a9aba")
+            btn_evol_nueva.config(state="disabled")  # Impide presionar el botón una segunda vez
+
+        btn_evol_nueva = tk.Button(panel,
+            text="⬆ Evolucionar base\n+5% vida + Escudo  $120",
+            command=evolucionar_base_nueva,
+            font=("Arial", 8), bg="#1a2a3a", fg="#aaaaff",
+            activebackground="#0f3460", width=18, height=2,
+            bd=0, cursor="hand2", relief="flat")
+        btn_evol_nueva.pack(pady=(0, 4))
+
+        tk.Label(panel, text="─────────────", bg="#16213e", fg="#444444").pack(pady=(8, 4))
 
         def terminar_construccion_nueva():
             # Cumple el mismo rol que terminar_construccion() de la ronda 1.
