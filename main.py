@@ -1050,7 +1050,9 @@ def mostrar_juego(root):
 
     # Estado de la fase de ataque (la fase de construcción no los usa todavía;
     # la fase de ataque los actualizará cada turno)
-    vida_base = [300]        # HP de la base; cuando llega a 0 el atacante gana la ronda
+    vida_base         = [300]   # HP de la base; cuando llega a 0 el atacante gana la ronda
+    escudo_base       = [0]     # HP del escudo (0 = sin escudo activo)
+    base_evolucionada = [False] # Solo se puede evolucionar una vez por ronda
     unidades_activas = []    # Lista de objetos Unidad del atacante en el tablero
     dinero_atacante = [250]  # Dinero inicial del atacante para comprar tropas (ronda 1, sin bonos)
     turno_combate   = [0]    # Contador de turnos para activar habilidades cada 3 turnos
@@ -1164,6 +1166,11 @@ def mostrar_juego(root):
 
     # Indicador de primer paso: colocar la base
     # Se oculta automáticamente en al_hacer_clic() cuando la base queda colocada
+    # Muestra el HP del escudo activo; se actualiza cada vez que el escudo absorbe daño
+    lbl_escudo = tk.Label(panel, text="", font=("Arial", 9),
+                          bg="#16213e", fg="#4a9aba", wraplength=180)
+    lbl_escudo.pack(pady=(0, 4))
+
     lbl_hint_base = tk.Label(panel,
         text="① Primer clic: colocá\ntu BASE en el tablero",
         font=("Arial", 9, "bold"), bg="#16213e", fg="#4a9aba",
@@ -1733,7 +1740,16 @@ def mostrar_juego(root):
 
             # Si ya está en la base, la ataca y termina
             if df == 0 and dc == 0:
-                vida_base[0] -= unidad.dano
+                _d = unidad.dano
+                if escudo_base[0] > 0:
+                    # El escudo absorbe el 60 % del daño; el resto pasa a la base
+                    _absorbe = int(_d * 0.6)
+                    escudo_base[0] = max(0, escudo_base[0] - _absorbe)
+                    vida_base[0] -= (_d - _absorbe)
+                    if lbl_escudo.winfo_exists():
+                        lbl_escudo.config(text=f"🛡 Escudo: {escudo_base[0]} HP" if escudo_base[0] > 0 else "🛡 Escudo destruido")
+                else:
+                    vida_base[0] -= _d
                 dibujar_celda(fila_base, col_base)  # Actualiza HP visible de la base
                 break
 
@@ -1774,7 +1790,16 @@ def mostrar_juego(root):
                 break
             elif nueva_fila == fila_base and nueva_col == col_base:
                 # Llegó a la base: la ataca y termina
-                vida_base[0] -= unidad.dano
+                _d = unidad.dano
+                if escudo_base[0] > 0:
+                    # El escudo absorbe el 60 % del daño; el resto pasa a la base
+                    _absorbe = int(_d * 0.6)
+                    escudo_base[0] = max(0, escudo_base[0] - _absorbe)
+                    vida_base[0] -= (_d - _absorbe)
+                    if lbl_escudo.winfo_exists():
+                        lbl_escudo.config(text=f"🛡 Escudo: {escudo_base[0]} HP" if escudo_base[0] > 0 else "🛡 Escudo destruido")
+                else:
+                    vida_base[0] -= _d
                 dibujar_celda(fila_base, col_base)  # Muestra el nuevo HP de la base
                 break
             else:
@@ -2093,7 +2118,9 @@ def mostrar_juego(root):
         base_pos[0] = None
         base_pos[1] = None
         elemento_seleccionado[0] = None
-        vida_base[0] = 300
+        vida_base[0]         = 300
+        escudo_base[0]       = 0     # El escudo no persiste entre rondas
+        base_evolucionada[0] = False # Permite volver a evolucionar en la siguiente ronda
         unidades_activas.clear()
 
         # ── Dinero para la siguiente ronda ────────────────────────────────────────
