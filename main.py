@@ -48,7 +48,17 @@ class Muro:
         self.nombre = "Muro"   # Nombre visible
         self.costo = 30        # Barato, el defensor puede poner varios
         self.vida = 150        # Bastante vida para aguantar varios ataques
-        self.activo = True     # True = muro en pie, False = destruido
+        self.activo = True  # True = muro en pie, False = destruido
+        self.nivel = 1      # Nivel actual (1 al 3)
+
+    def mejorar(self):
+        """Sube el nivel del muro (máx 3). Solo escala vida."""
+        if self.nivel >= 3:
+            return False
+        self.nivel += 1
+        mult = 1.4 if self.nivel == 2 else 1.9
+        self.vida = int(150 * mult)
+        return True
 
     def recibir_dano(self, cantidad):
         """
@@ -82,7 +92,20 @@ class Torre:
         self.dano = dano            # Daño que hace por ataque normal
         self.alcance = alcance      # Cantidad de celdas que puede atacar a distancia
         self.activa = True          # True = torre en pie, False = torre destruida
-        
+        self.nivel = 1              # Nivel actual (1 al 3)
+        self._vida_base = vida      # Stats base para escalar por nivel
+        self._dano_base = dano
+
+    def mejorar(self):
+        """Sube el nivel de la torre (máx 3). Escala vida y daño."""
+        if self.nivel >= 3:
+            return False
+        self.nivel += 1
+        mult = 1.4 if self.nivel == 2 else 1.9
+        self.vida = int(self._vida_base * mult)
+        self.dano = int(self._dano_base * mult)
+        return True
+
     def recibir_dano(self, cantidad):
         #Resta vida a la torre cuando una unidad la ataca.
         #Si la vida llega a 0 la marca como destruida.
@@ -194,6 +217,20 @@ class Unidad:
         self.velocidad = velocidad    # Cantidad de celdas que se puede mover por turno
         self.activa = True            # True = unidad viva, False = unidad eliminada
         self.atacando = False         # False = moviéndose, True = atacando torre (para animación de sprite)
+        self.nivel = 1                # Nivel actual (1 al 3)
+        self._vida_base = vida        # Stats base para escalar por nivel
+        self._dano_base = dano
+
+    def mejorar(self):
+        """Sube el nivel de la unidad (máx 3). Escala vida y daño."""
+        if self.nivel >= 3:
+            return False
+        self.nivel += 1
+        mult = 1.4 if self.nivel == 2 else 1.9
+        self.vida = int(self._vida_base * mult)
+        self.vida_maxima = self.vida
+        self.dano = int(self._dano_base * mult)
+        return True
 
     def recibir_dano(self, cantidad):
         # Resta vida a la unidad cuando una torre o defensa la ataca.
