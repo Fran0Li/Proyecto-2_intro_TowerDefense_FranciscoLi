@@ -358,13 +358,21 @@ def iniciar_sesion(usuario, contrasena):
 #####################################
 def mostrar_volumen(root):
     """
-    Abre una ventana Toplevel con un slider para controlar
-    el volumen de la música de fondo usando pygame.mixer.
+    Abre la ventana de volumen. Si ya está abierta, la trae al frente
+    en vez de abrir una segunda instancia.
     """
+    # Si ya existe una ventana de volumen y sigue viva, solo la enfoca
+    if hasattr(mostrar_volumen, "_ventana") and mostrar_volumen._ventana.winfo_exists():
+        mostrar_volumen._ventana.lift()
+        mostrar_volumen._ventana.focus_force()
+        return
+
     ventana_vol = tk.Toplevel(root)
+    mostrar_volumen._ventana = ventana_vol   # Guarda la referencia para el singleton
     ventana_vol.title("Configuración de volumen")
     ventana_vol.resizable(False, False)
     ventana_vol.geometry("400x300")
+
     # Canvas con imagen de fondo Menu.png
     canvas_vol = tk.Canvas(ventana_vol, width=400, height=300)
     canvas_vol.pack(expand=True, fill="both")
@@ -375,23 +383,35 @@ def mostrar_volumen(root):
         canvas_vol._fondo_ref = foto  # Evita que el GC descarte la imagen
     except Exception:
         canvas_vol.configure(bg="#1a1a2e")  # Fondo de respaldo si falla
+
     # Título centrado sobre el slider
     canvas_vol.create_text(200, 60, text="Volumen de música",
         font=("Arial", 16, "bold"), fill="#ffffff")
+
     # Lee el volumen actual de pygame; usa 0.5 si el mixer no está activo
     vol_actual = pygame.mixer.music.get_volume() if pygame.mixer.get_init() else 0.5
     slider_var = tk.DoubleVar(value=vol_actual)
+
     def cambiar_volumen(val):
         # Aplica el valor del slider directamente al mixer; silencioso si falla
         try:
             pygame.mixer.music.set_volume(float(val))
         except Exception:
             pass
+
     # Slider horizontal de 0.0 (mudo) a 1.0 (máximo)
-    slider = tk.Scale(ventana_vol,from_=0.0, to=1.0,resolution=0.01,orient="horizontal",variable=slider_var,command=cambiar_volumen,length=250,bg="#0d1117", fg="#ffffff",troughcolor="#4a9aba",highlightthickness=0,font=("Arial", 10))
+    slider = tk.Scale(ventana_vol, from_=0.0, to=1.0, resolution=0.01,
+        orient="horizontal", variable=slider_var, command=cambiar_volumen,
+        length=250, bg="#0d1117", fg="#ffffff", troughcolor="#4a9aba",
+        highlightthickness=0, font=("Arial", 10))
     canvas_vol.create_window(200, 160, window=slider)
+
     # Botón para cerrar la ventana de volumen
-    btn_cerrar = tk.Button(ventana_vol, text="Cerrar",command=ventana_vol.destroy,font=("Arial", 12), bg="#16213e", fg="#ffffff",activebackground="#0f3460", activeforeground="#ffffff",width=12, bd=0, cursor="hand2")
+    btn_cerrar = tk.Button(ventana_vol, text="Cerrar",
+        command=ventana_vol.destroy,
+        font=("Arial", 12), bg="#16213e", fg="#ffffff",
+        activebackground="#0f3460", activeforeground="#ffffff",
+        width=12, bd=0, cursor="hand2")
     canvas_vol.create_window(200, 240, window=btn_cerrar)
 #  VENTANA MENU PRINCIPAL
 #####################################
