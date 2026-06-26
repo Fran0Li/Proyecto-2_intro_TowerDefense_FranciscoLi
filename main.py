@@ -373,6 +373,10 @@ def mostrar_volumen(root):
     ventana_vol.resizable(False, False)
     ventana_vol.geometry("400x300")
 
+    # Modal: bloquea la interacción con todas las demás ventanas mientras esté abierta
+    ventana_vol.grab_set()
+    ventana_vol.focus_force()
+
     # Canvas con imagen de fondo Menu.png
     canvas_vol = tk.Canvas(ventana_vol, width=400, height=300)
     canvas_vol.pack(expand=True, fill="both")
@@ -507,92 +511,101 @@ def mostrar_login(root, numero_jugador=1):
         activebackground="#0f3460", width=3, bd=0, cursor="hand2")
     canvas_login.create_window(770, 30, window=btn_vol)
 
-    canvas_login.create_text(400, 80,
+    # Título con sombra para legibilidad sobre el fondo
+    canvas_login.create_text(402, 92,
+        text=f"Jugador {numero_jugador} — Iniciar sesión",
+        font=("Arial", 22, "bold"), fill="#000000")  # sombra negra desplazada 2px
+    canvas_login.create_text(400, 90,
         text=f"Jugador {numero_jugador} — Iniciar sesión",
         font=("Arial", 22, "bold"), fill="#ffffff")
 
-    canvas_login.create_text(400, 160, text="Usuario:",
-        font=("Arial", 12), fill="#ffffff")
-    entry_usuario = tk.Entry(root, font=("Arial", 12), width=25)
-    canvas_login.create_window(400, 190, window=entry_usuario)
+    # Label USUARIO flotando sobre el fondo natural del canvas
+    canvas_login.create_text(283, 168,
+        text="USUARIO", anchor="w",
+        font=("Arial", 9, "bold"), fill="#ffffff")
 
-    canvas_login.create_text(400, 230, text="Contraseña:",
-        font=("Arial", 12), fill="#ffffff")
-    entry_contrasena = tk.Entry(root, font=("Arial", 12), width=25, show="*")
-    canvas_login.create_window(400, 260, window=entry_contrasena)
+    # Rectángulo semitransparente detrás del entry usuario (stipple = 50% opacidad)
+    canvas_login.create_rectangle(270, 175, 530, 209,
+        fill="#000000", stipple="gray50", outline="")
+    entry_usuario = tk.Entry(root, font=("Arial", 12), width=28,
+        bg="#111122", fg="#ffffff", insertbackground="#ffffff",
+        relief="flat", highlightthickness=0, bd=4)
+    canvas_login.create_window(400, 192, window=entry_usuario)
 
+    # Label CONTRASEÑA
+    canvas_login.create_text(283, 228,
+        text="CONTRASEÑA", anchor="w",
+        font=("Arial", 9, "bold"), fill="#ffffff")
+
+    # Rectángulo semitransparente detrás del entry contraseña
+    canvas_login.create_rectangle(270, 235, 530, 269,
+        fill="#000000", stipple="gray50", outline="")
+    entry_contrasena = tk.Entry(root, font=("Arial", 12), width=28, show="*",
+        bg="#111122", fg="#ffffff", insertbackground="#ffffff",
+        relief="flat", highlightthickness=0, bd=4)
+    canvas_login.create_window(400, 252, window=entry_contrasena)
+
+    # Mensaje de feedback: rojo para error, verde para éxito
     lbl_mensaje = tk.Label(root, text="", font=("Arial", 10),
-        bg="#0d1117", fg="#ff6b6b")
-    canvas_login.create_window(400, 300, window=lbl_mensaje)
+        bg="#111122", fg="#ff6b6b")
+    canvas_login.create_window(400, 295, window=lbl_mensaje)
 
     def intentar_login():
-        #Lee los campos y verifica las credenciales.
-        #Si son correctas guarda el jugador en jugadores_sesion.
-        
-        usuario = entry_usuario.get().strip()       # .strip() elimina espacios
+        # Verifica credenciales y avanza al siguiente jugador o a facciones
+        usuario = entry_usuario.get().strip()
         contrasena = entry_contrasena.get().strip()
-
-        # Validar que no estén vacíos
         if not usuario or not contrasena:
             lbl_mensaje.config(text="Por favor completá ambos campos.", fg="#ff6b6b")
             return
-        
         datos = iniciar_sesion(usuario, contrasena)
         if datos is None:
             lbl_mensaje.config(text="Usuario o contraseña incorrectos.", fg="#ff6b6b")
             return
-        # Guardar el jugador en la posición correcta de la sesión
         jugadores_sesion[numero_jugador - 1] = datos
-        lbl_mensaje.config(text=f"¡Bienvenido, {datos['usuario']}!", fg="#6bff8e") #Verde para éxito
-
-        # Si ya ingresaron ambos jugadores, avanzar
-        # Si es jugador 1, pedir login del jugador 2
+        lbl_mensaje.config(text=f"¡Bienvenido, {datos['usuario']}!", fg="#6bff8e")
         if numero_jugador == 1:
-            root.after(800, lambda: mostrar_login(root, 2))  # Espera 800ms y avanza
+            root.after(800, lambda: mostrar_login(root, 2))   # Espera y pide al jugador 2
         else:
-            root.after(800, lambda: mostrar_facciones(root, 1))  # Ambos listos, volver al menú
-    # Función interna de registro 
-    def intentar_registro():
-    
-        #Lee los campos e intenta registrar un nuevo jugador.
-        #Muestra mensaje de éxito o error según el resultado.
+            root.after(800, lambda: mostrar_facciones(root, 1))  # Ambos listos → facciones
 
+    def intentar_registro():
+        # Valida campos y registra un nuevo usuario en el JSON
         usuario = entry_usuario.get().strip()
         contrasena = entry_contrasena.get().strip()
-
         if not usuario or not contrasena:
             lbl_mensaje.config(text="Por favor completá ambos campos.", fg="#ff6b6b")
             return
-
-        # Validar longitud mínima de contraseña
         if len(contrasena) < 4:
             lbl_mensaje.config(text="La contraseña debe tener al menos 4 caracteres.", fg="#ff6b6b")
             return
-
-        exito = registrar_jugador(usuario, contrasena) #Llama a la funcion de registro
-
-        if not exito: # Si ya esta registrado
+        exito = registrar_jugador(usuario, contrasena)
+        if not exito:
             lbl_mensaje.config(text="Ese usuario ya existe. Intentá con otro.", fg="#ff6b6b")
             return
-
         lbl_mensaje.config(text="¡Registro exitoso! Ya podés iniciar sesión.", fg="#6bff8e")
+
+    # Botón principal — Iniciar sesión, ancho completo
     btn_login = tk.Button(root, text="Iniciar sesión",
-        command=intentar_login, font=("Arial", 13),
-        bg="#0a0a14", fg="#ffffff", activebackground="#0f3460",
-        width=20, height=2, bd=0, cursor="hand2")
-    canvas_login.create_window(400, 360, window=btn_login)
+        command=intentar_login, font=("Arial", 13, "bold"),
+        bg="#0f3460", fg="#ffffff",
+        activebackground="#1b5a8a", activeforeground="#ffffff",
+        width=28, height=2, bd=0, cursor="hand2", relief="flat")
+    canvas_login.create_window(400, 338, window=btn_login)
 
+    # Botones secundarios lado a lado: Registrarse | ← Menú
     btn_registro = tk.Button(root, text="Registrarse",
-        command=intentar_registro, font=("Arial", 13),
-        bg="#0a0a14", fg="#ffffff", activebackground="#0f3460",
-        width=20, height=2, bd=0, cursor="hand2")
-    canvas_login.create_window(400, 430, window=btn_registro)
+        command=intentar_registro, font=("Arial", 11),
+        bg="#111122", fg="#dddddd",
+        activebackground="#0f3460", activeforeground="#ffffff",
+        width=13, height=2, bd=0, cursor="hand2", relief="flat")
+    canvas_login.create_window(329, 393, window=btn_registro)
 
-    btn_menu = tk.Button(root, text="Volver al menú",
-        command=lambda: mostrar_menu(root), font=("Arial", 13),
-        bg="#0a0a14", fg="#ffffff", activebackground="#0f3460",
-        width=20, height=2, bd=0, cursor="hand2")
-    canvas_login.create_window(400, 500, window=btn_menu)
+    btn_menu = tk.Button(root, text="← Menú",
+        command=lambda: mostrar_menu(root), font=("Arial", 11),
+        bg="#111122", fg="#dddddd",
+        activebackground="#0f3460", activeforeground="#ffffff",
+        width=13, height=2, bd=0, cursor="hand2", relief="flat")
+    canvas_login.create_window(471, 393, window=btn_menu)
 
 
 #  VENTANA SELECCIÓN DE FACCIONES
