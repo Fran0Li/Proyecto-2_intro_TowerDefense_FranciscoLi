@@ -1125,6 +1125,14 @@ def mostrar_juego(root):
                            bg="#16213e", fg="#ff6b6b", wraplength=180)
     lbl_estado.pack(pady=(0, 10))
 
+    # Indicador de primer paso: colocar la base
+    # Se oculta automáticamente en al_hacer_clic() cuando la base queda colocada
+    lbl_hint_base = tk.Label(panel,
+        text="① Primer clic: colocá\ntu BASE en el tablero",
+        font=("Arial", 9, "bold"), bg="#16213e", fg="#4a9aba",
+        wraplength=180, justify="center")
+    lbl_hint_base.pack(pady=(0, 8))
+
     def seleccionar_elemento(elemento):
         """
         Marca qué elemento quedó seleccionado en el panel.
@@ -1606,6 +1614,7 @@ def mostrar_juego(root):
                 lbl_estado.config(text="La base debe ir en la zona verde.")
                 return
             base_pos[0], base_pos[1] = fila, col
+            lbl_hint_base.pack_forget()  # Oculta el hint una vez colocada la base
             dibujar_celda(fila, col)
             lbl_estado.config(text="")
             return
