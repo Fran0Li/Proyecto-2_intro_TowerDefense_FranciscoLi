@@ -1354,6 +1354,9 @@ def mostrar_juego(root):
         lbl_escudo.config(text=f"🛡 Escudo: {escudo_base[0]} HP")
         lbl_estado.config(text="¡Base evolucionada! Escudo activo.", fg="#4a9aba")
         btn_evolucionar_base.config(state="disabled")  # Impide presionar el botón una segunda vez
+        # Redibuja la celda de la base para mostrar la burbuja de escudo de inmediato
+        if base_pos[0] is not None:
+            dibujar_celda(base_pos[0], base_pos[1])
 
     btn_evolucionar_base = tk.Button(panel,
         text="⬆ Evolucionar base\n+Escudo  |  $120",
@@ -1634,8 +1637,9 @@ def mostrar_juego(root):
 
         # ── Prioridad 1: base central ──
         if fila == base_pos[0] and col == base_pos[1]:
-            color = "#e63946"                   # Rojo para distinguir la base del resto
-            texto = f"BASE\n{vida_base[0]}HP"   # Muestra el HP actual de la base en la celda
+            # Azul cuando el escudo está activo, rojo en condición normal
+            color = "#1a6aaa" if escudo_base[0] > 0 else "#e63946"
+            texto = f"BASE\n{vida_base[0]}HP"
 
         # ── Prioridad 2: torre colocada ──
         elif (fila, col) in torres_colocadas:
@@ -1766,6 +1770,21 @@ def mostrar_juego(root):
             canvas.create_image(cx, cy, image=sprite_img, tags=f"celda_{fila}_{col}")
             # Mantiene la referencia viva para que Tkinter no descarte la imagen
             imagenes_activas[f"{fila}_{col}"] = sprite_img
+
+        # ── Burbuja de escudo en la base ──
+        # Solo se dibuja cuando la base tiene escudo activo, encima del sprite.
+        if (fila == base_pos[0] and col == base_pos[1]
+                and escudo_base[0] > 0):
+            # Óvalo exterior — borde azul eléctrico brillante
+            canvas.create_oval(
+                x1 + 2, y1 + 2, x2 - 2, y2 - 2,
+                outline="#4fc3f7", width=2,
+                tags=f"celda_{fila}_{col}")
+            # Óvalo interior más tenue — efecto de profundidad
+            canvas.create_oval(
+                x1 + 5, y1 + 5, x2 - 5, y2 - 5,
+                outline="#81d4fa", width=1,
+                tags=f"celda_{fila}_{col}")
 
         # ── Indicador de nivel: franja superior con "N2"/"N3" ──
         # Se dibuja al final para quedar encima del sprite.
@@ -2493,6 +2512,9 @@ def mostrar_juego(root):
             lbl_escudo.config(text=f"🛡 Escudo: {escudo_base[0]} HP")
             lbl_estado_nueva.config(text="¡Base evolucionada! Escudo activo.", fg="#4a9aba")
             btn_evol_nueva.config(state="disabled")  # Impide presionar el botón una segunda vez
+            # Redibuja la celda de la base para mostrar la burbuja de escudo de inmediato
+            if base_pos[0] is not None:
+                dibujar_celda(base_pos[0], base_pos[1])
 
         btn_evol_nueva = tk.Button(panel,
             text="⬆ Evolucionar base\n+Escudo  |  $120",
