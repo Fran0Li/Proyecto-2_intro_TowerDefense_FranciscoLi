@@ -1182,6 +1182,7 @@ def mostrar_juego(root):
     lbl_escudo = tk.Label(panel, text="", font=("Arial", 9),
                           bg="#16213e", fg="#4a9aba", wraplength=180)
     lbl_escudo.pack(pady=(0, 4))
+    lbl_escudo_nueva = None  # Se asigna en el panel de rondas siguientes
 
     lbl_hint_base = tk.Label(panel,
         text="① Primer clic: colocá\ntu BASE en el tablero",
@@ -1931,8 +1932,9 @@ def mostrar_juego(root):
                     _absorbe = int(_d * 0.6)
                     escudo_base[0] = max(0, escudo_base[0] - _absorbe)
                     vida_base[0] -= (_d - _absorbe)
-                    if lbl_escudo.winfo_exists():
-                        lbl_escudo.config(text=f"🛡 Escudo: {escudo_base[0]} HP" if escudo_base[0] > 0 else "🛡 Escudo destruido")
+                    _lbl = lbl_escudo_nueva if lbl_escudo_nueva is not None and lbl_escudo_nueva.winfo_exists() else lbl_escudo if lbl_escudo.winfo_exists() else None
+                    if _lbl:
+                        _lbl.config(text=f"🛡 Escudo: {escudo_base[0]} HP" if escudo_base[0] > 0 else "🛡 Escudo destruido")
                 else:
                     vida_base[0] -= _d
                 dibujar_celda(fila_base, col_base)  # Actualiza HP visible de la base
@@ -1981,8 +1983,9 @@ def mostrar_juego(root):
                     _absorbe = int(_d * 0.6)
                     escudo_base[0] = max(0, escudo_base[0] - _absorbe)
                     vida_base[0] -= (_d - _absorbe)
-                    if lbl_escudo.winfo_exists():
-                        lbl_escudo.config(text=f"🛡 Escudo: {escudo_base[0]} HP" if escudo_base[0] > 0 else "🛡 Escudo destruido")
+                    _lbl = lbl_escudo_nueva if lbl_escudo_nueva is not None and lbl_escudo_nueva.winfo_exists() else lbl_escudo if lbl_escudo.winfo_exists() else None
+                    if _lbl:
+                        _lbl.config(text=f"🛡 Escudo: {escudo_base[0]} HP" if escudo_base[0] > 0 else "🛡 Escudo destruido")
                 else:
                     vida_base[0] -= _d
                 dibujar_celda(fila_base, col_base)  # Muestra el nuevo HP de la base
@@ -2356,6 +2359,14 @@ def mostrar_juego(root):
         tk.Label(panel, text=f"Ronda — Def: {rondas_sesion['defensor']}  Atac: {rondas_sesion['atacante']}",
                  font=("Arial", 9), bg="#16213e", fg="#888888").pack(pady=(0, 10))
 
+        # Label de escudo para rondas siguientes (reemplaza al de ronda 1 que ya no existe)
+        lbl_escudo_nueva = tk.Label(panel, text="", font=("Arial", 9),
+                                    bg="#16213e", fg="#4a9aba", wraplength=180)
+        lbl_escudo_nueva.pack(pady=(0, 4))
+        # Si el escudo sigue activo de esta ronda, mostrar su HP
+        if escudo_base[0] > 0:
+            lbl_escudo_nueva.config(text=f"🛡 Escudo: {escudo_base[0]} HP")
+
         # Label que muestra qué torre/muro está seleccionado en este momento
         lbl_seleccion_nueva = tk.Label(panel, text="Elegí una torre",
                                         font=("Arial", 9), bg="#16213e", fg="#888888", wraplength=180)
@@ -2509,7 +2520,7 @@ def mostrar_juego(root):
             escudo_base[0] = 80                    # HP inicial del escudo; se va agotando al absorber daño
             base_evolucionada[0] = True            # Bloquea una segunda evolución en esta misma ronda
             lbl_dinero_nueva.config(text=f"Dinero: ${dinero_defensor[0]}")
-            lbl_escudo.config(text=f"🛡 Escudo: {escudo_base[0]} HP")
+            lbl_escudo_nueva.config(text=f"🛡 Escudo: {escudo_base[0]} HP")
             lbl_estado_nueva.config(text="¡Base evolucionada! Escudo activo.", fg="#4a9aba")
             btn_evol_nueva.config(state="disabled")  # Impide presionar el botón una segunda vez
             # Redibuja la celda de la base para mostrar la burbuja de escudo de inmediato
