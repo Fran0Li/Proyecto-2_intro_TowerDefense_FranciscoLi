@@ -2516,7 +2516,7 @@ def mostrar_juego(root):
                 lbl_estado_nueva.config(text="Sin dinero. Evolucionar cuesta $120.")
                 return
             dinero_defensor[0] -= 120              # Descuenta el costo de la evolución
-            vida_base[0] = int(vida_base[0] * 1.05)  # +5 % sobre el HP actual (no el máximo original)
+            vida_base[0] = int(vida_base[0] * 1.25)  # +5 % sobre el HP actual (no el máximo original)
             escudo_base[0] = 80                    # HP inicial del escudo; se va agotando al absorber daño
             base_evolucionada[0] = True            # Bloquea una segunda evolución en esta misma ronda
             lbl_dinero_nueva.config(text=f"Dinero: ${dinero_defensor[0]}")
