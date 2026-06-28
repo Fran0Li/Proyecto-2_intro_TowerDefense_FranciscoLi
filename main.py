@@ -1635,6 +1635,7 @@ def mostrar_juego(root):
         vida_actual = None  # None indica que esta celda no dibuja barra de vida
         vida_max    = None
         nivel_obj = 1  # 1 = sin mejora, no se muestra nada
+        unidades_en_celda = 0  # Por defecto ninguna celda tiene unidades apiladas
 
         # ── Prioridad 1: base central ──
         if fila == base_pos[0] and col == base_pos[1]:
@@ -1672,6 +1673,9 @@ def mostrar_juego(root):
             vida_actual = unidad.vida
             vida_max    = unidad.vida_maxima  # Atributo guardado en la clase Unidad base
             nivel_obj = unidad.nivel
+            # Cuenta cuántas unidades activas comparten esta celda
+            unidades_en_celda = sum(1 for u in unidades_activas
+                                    if u.activa and u.fila == fila and u.col == col)
 
         # ── Prioridad 5: zona de construcción (solo mapa clásico) ──
         elif esta_en_zona_construccion(fila, col, CENTRO_FILA, CENTRO_COLUMNA, RADIO_CONSTRUCCION) and mapa_sesion[0] == "clasico":
@@ -1785,6 +1789,20 @@ def mostrar_juego(root):
             canvas.create_oval(
                 x1 + 5, y1 + 5, x2 - 5, y2 - 5,
                 outline="#81d4fa", width=1,
+                tags=f"celda_{fila}_{col}")
+
+        # Contador de unidades apiladas — esquina superior derecha
+        # Solo aparece cuando hay más de una unidad en la misma celda
+        if unidades_en_celda > 1:
+            canvas.create_text(
+                x2 - 3, y1 + 4,
+                text=f"×{unidades_en_celda}", fill="#000000",
+                font=("Arial", 7, "bold"), anchor="ne",
+                tags=f"celda_{fila}_{col}")
+            canvas.create_text(
+                x2 - 4, y1 + 3,
+                text=f"×{unidades_en_celda}", fill="#ffffff",
+                font=("Arial", 7, "bold"), anchor="ne",
                 tags=f"celda_{fila}_{col}")
 
         # ── Indicador de nivel: franja superior con "N2"/"N3" ──
