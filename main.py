@@ -48,7 +48,17 @@ class Muro:
         self.nombre = "Muro"   # Nombre visible
         self.costo = 30        # Barato, el defensor puede poner varios
         self.vida = 150        # Bastante vida para aguantar varios ataques
-        self.activo = True     # True = muro en pie, False = destruido
+        self.activo = True  # True = muro en pie, False = destruido
+        self.nivel = 1      # Nivel actual (1 al 3)
+
+    def mejorar(self):
+        """Sube el nivel del muro (máx 3). Solo escala vida."""
+        if self.nivel >= 3:
+            return False
+        self.nivel += 1
+        mult = 1.4 if self.nivel == 2 else 1.9
+        self.vida = int(150 * mult)
+        return True
 
     def recibir_dano(self, cantidad):
         """
@@ -82,7 +92,20 @@ class Torre:
         self.dano = dano            # Daño que hace por ataque normal
         self.alcance = alcance      # Cantidad de celdas que puede atacar a distancia
         self.activa = True          # True = torre en pie, False = torre destruida
-        
+        self.nivel = 1              # Nivel actual (1 al 3)
+        self._vida_base = vida      # Stats base para escalar por nivel
+        self._dano_base = dano
+
+    def mejorar(self):
+        """Sube el nivel de la torre (máx 3). Escala vida y daño."""
+        if self.nivel >= 3:
+            return False
+        self.nivel += 1
+        mult = 1.4 if self.nivel == 2 else 1.9
+        self.vida = int(self._vida_base * mult)
+        self.dano = int(self._dano_base * mult)
+        return True
+
     def recibir_dano(self, cantidad):
         #Resta vida a la torre cuando una unidad la ataca.
         #Si la vida llega a 0 la marca como destruida.
@@ -194,6 +217,20 @@ class Unidad:
         self.velocidad = velocidad    # Cantidad de celdas que se puede mover por turno
         self.activa = True            # True = unidad viva, False = unidad eliminada
         self.atacando = False         # False = moviéndose, True = atacando torre (para animación de sprite)
+        self.nivel = 1                # Nivel actual (1 al 3)
+        self._vida_base = vida        # Stats base para escalar por nivel
+        self._dano_base = dano
+
+    def mejorar(self):
+        """Sube el nivel de la unidad (máx 3). Escala vida y daño."""
+        if self.nivel >= 3:
+            return False
+        self.nivel += 1
+        mult = 1.4 if self.nivel == 2 else 1.9
+        self.vida = int(self._vida_base * mult)
+        self.vida_maxima = self.vida
+        self.dano = int(self._dano_base * mult)
+        return True
 
     def recibir_dano(self, cantidad):
         # Resta vida a la unidad cuando una torre o defensa la ataca.
@@ -358,13 +395,25 @@ def iniciar_sesion(usuario, contrasena):
 #####################################
 def mostrar_volumen(root):
     """
-    Abre una ventana Toplevel con un slider para controlar
-    el volumen de la música de fondo usando pygame.mixer.
+    Abre la ventana de volumen. Si ya está abierta, la trae al frente
+    en vez de abrir una segunda instancia.
     """
+    # Si ya existe una ventana de volumen y sigue viva, solo la enfoca
+    if hasattr(mostrar_volumen, "_ventana") and mostrar_volumen._ventana.winfo_exists():
+        mostrar_volumen._ventana.lift()
+        mostrar_volumen._ventana.focus_force()
+        return
+
     ventana_vol = tk.Toplevel(root)
+    mostrar_volumen._ventana = ventana_vol   # Guarda la referencia para el singleton
     ventana_vol.title("Configuración de volumen")
     ventana_vol.resizable(False, False)
     ventana_vol.geometry("400x300")
+
+    # Modal: bloquea la interacción con todas las demás ventanas mientras esté abierta
+    ventana_vol.grab_set()
+    ventana_vol.focus_force()
+
     # Canvas con imagen de fondo Menu.png
     canvas_vol = tk.Canvas(ventana_vol, width=400, height=300)
     canvas_vol.pack(expand=True, fill="both")
@@ -375,23 +424,35 @@ def mostrar_volumen(root):
         canvas_vol._fondo_ref = foto  # Evita que el GC descarte la imagen
     except Exception:
         canvas_vol.configure(bg="#1a1a2e")  # Fondo de respaldo si falla
+
     # Título centrado sobre el slider
     canvas_vol.create_text(200, 60, text="Volumen de música",
         font=("Arial", 16, "bold"), fill="#ffffff")
+
     # Lee el volumen actual de pygame; usa 0.5 si el mixer no está activo
     vol_actual = pygame.mixer.music.get_volume() if pygame.mixer.get_init() else 0.5
     slider_var = tk.DoubleVar(value=vol_actual)
+
     def cambiar_volumen(val):
         # Aplica el valor del slider directamente al mixer; silencioso si falla
         try:
             pygame.mixer.music.set_volume(float(val))
         except Exception:
             pass
+
     # Slider horizontal de 0.0 (mudo) a 1.0 (máximo)
-    slider = tk.Scale(ventana_vol,from_=0.0, to=1.0,resolution=0.01,orient="horizontal",variable=slider_var,command=cambiar_volumen,length=250,bg="#0d1117", fg="#ffffff",troughcolor="#4a9aba",highlightthickness=0,font=("Arial", 10))
+    slider = tk.Scale(ventana_vol, from_=0.0, to=1.0, resolution=0.01,
+        orient="horizontal", variable=slider_var, command=cambiar_volumen,
+        length=250, bg="#0d1117", fg="#ffffff", troughcolor="#4a9aba",
+        highlightthickness=0, font=("Arial", 10))
     canvas_vol.create_window(200, 160, window=slider)
+
     # Botón para cerrar la ventana de volumen
-    btn_cerrar = tk.Button(ventana_vol, text="Cerrar",command=ventana_vol.destroy,font=("Arial", 12), bg="#16213e", fg="#ffffff",activebackground="#0f3460", activeforeground="#ffffff",width=12, bd=0, cursor="hand2")
+    btn_cerrar = tk.Button(ventana_vol, text="Cerrar",
+        command=ventana_vol.destroy,
+        font=("Arial", 12), bg="#16213e", fg="#ffffff",
+        activebackground="#0f3460", activeforeground="#ffffff",
+        width=12, bd=0, cursor="hand2")
     canvas_vol.create_window(200, 240, window=btn_cerrar)
 #  VENTANA MENU PRINCIPAL
 #####################################
@@ -425,8 +486,11 @@ def mostrar_menu(root):
 
     canvas_menu.create_text(400, 150, text="Asedio y defensa",
         font=("Arial", 28, "bold"), fill="#ffffff")
+    # Sombra + texto blanco para legibilidad del subtítulo sobre el fondo
+    canvas_menu.create_text(402, 197, text="Juego de estrategia",
+        font=("Arial", 12), fill="#000000")
     canvas_menu.create_text(400, 195, text="Juego de estrategia",
-        font=("Arial", 12), fill="#cccccc")
+        font=("Arial", 12), fill="#ffffff")
 
     btn_jugar   = tk.Button(root, text="Jugar",   command=lambda: mostrar_login(root),
                             font=("Arial", 14), bg="#16213e", fg="#e0e0e0",
@@ -487,92 +551,107 @@ def mostrar_login(root, numero_jugador=1):
         activebackground="#0f3460", width=3, bd=0, cursor="hand2")
     canvas_login.create_window(770, 30, window=btn_vol)
 
-    canvas_login.create_text(400, 80,
+    # Título con sombra para legibilidad sobre el fondo
+    canvas_login.create_text(402, 92,
+        text=f"Jugador {numero_jugador} — Iniciar sesión",
+        font=("Arial", 22, "bold"), fill="#000000")  # sombra negra desplazada 2px
+    canvas_login.create_text(400, 90,
         text=f"Jugador {numero_jugador} — Iniciar sesión",
         font=("Arial", 22, "bold"), fill="#ffffff")
 
-    canvas_login.create_text(400, 160, text="Usuario:",
-        font=("Arial", 12), fill="#ffffff")
-    entry_usuario = tk.Entry(root, font=("Arial", 12), width=25)
-    canvas_login.create_window(400, 190, window=entry_usuario)
+    # Sombra + texto blanco para el label USUARIO
+    canvas_login.create_text(285, 170,
+        text="USUARIO", anchor="w",
+        font=("Arial", 9, "bold"), fill="#000000")
+    canvas_login.create_text(283, 168,
+        text="USUARIO", anchor="w",
+        font=("Arial", 9, "bold"), fill="#ffffff")
 
-    canvas_login.create_text(400, 230, text="Contraseña:",
-        font=("Arial", 12), fill="#ffffff")
-    entry_contrasena = tk.Entry(root, font=("Arial", 12), width=25, show="*")
-    canvas_login.create_window(400, 260, window=entry_contrasena)
+    # Rectángulo semitransparente detrás del entry usuario (stipple = 50% opacidad)
+    canvas_login.create_rectangle(270, 175, 530, 209,
+        fill="#000000", stipple="gray50", outline="")
+    entry_usuario = tk.Entry(root, font=("Arial", 12), width=28,
+        bg="#111122", fg="#ffffff", insertbackground="#ffffff",
+        relief="flat", highlightthickness=0, bd=4)
+    canvas_login.create_window(400, 192, window=entry_usuario)
 
+    # Sombra + texto blanco para el label CONTRASEÑA
+    canvas_login.create_text(285, 230,
+        text="CONTRASEÑA", anchor="w",
+        font=("Arial", 9, "bold"), fill="#000000")
+    canvas_login.create_text(283, 228,
+        text="CONTRASEÑA", anchor="w",
+        font=("Arial", 9, "bold"), fill="#ffffff")
+
+    # Rectángulo semitransparente detrás del entry contraseña
+    canvas_login.create_rectangle(270, 235, 530, 269,
+        fill="#000000", stipple="gray50", outline="")
+    entry_contrasena = tk.Entry(root, font=("Arial", 12), width=28, show="*",
+        bg="#111122", fg="#ffffff", insertbackground="#ffffff",
+        relief="flat", highlightthickness=0, bd=4)
+    canvas_login.create_window(400, 252, window=entry_contrasena)
+
+    # Mensaje de feedback: rojo para error, verde para éxito
     lbl_mensaje = tk.Label(root, text="", font=("Arial", 10),
-        bg="#0d1117", fg="#ff6b6b")
-    canvas_login.create_window(400, 300, window=lbl_mensaje)
+        bg="#111122", fg="#ff6b6b")
+    canvas_login.create_window(400, 295, window=lbl_mensaje)
 
     def intentar_login():
-        #Lee los campos y verifica las credenciales.
-        #Si son correctas guarda el jugador en jugadores_sesion.
-        
-        usuario = entry_usuario.get().strip()       # .strip() elimina espacios
+        # Verifica credenciales y avanza al siguiente jugador o a facciones
+        usuario = entry_usuario.get().strip()
         contrasena = entry_contrasena.get().strip()
-
-        # Validar que no estén vacíos
         if not usuario or not contrasena:
             lbl_mensaje.config(text="Por favor completá ambos campos.", fg="#ff6b6b")
             return
-        
         datos = iniciar_sesion(usuario, contrasena)
         if datos is None:
             lbl_mensaje.config(text="Usuario o contraseña incorrectos.", fg="#ff6b6b")
             return
-        # Guardar el jugador en la posición correcta de la sesión
         jugadores_sesion[numero_jugador - 1] = datos
-        lbl_mensaje.config(text=f"¡Bienvenido, {datos['usuario']}!", fg="#6bff8e") #Verde para éxito
-
-        # Si ya ingresaron ambos jugadores, avanzar
-        # Si es jugador 1, pedir login del jugador 2
+        lbl_mensaje.config(text=f"¡Bienvenido, {datos['usuario']}!", fg="#6bff8e")
         if numero_jugador == 1:
-            root.after(800, lambda: mostrar_login(root, 2))  # Espera 800ms y avanza
+            root.after(800, lambda: mostrar_login(root, 2))   # Espera y pide al jugador 2
         else:
-            root.after(800, lambda: mostrar_facciones(root, 1))  # Ambos listos, volver al menú
-    # Función interna de registro 
-    def intentar_registro():
-    
-        #Lee los campos e intenta registrar un nuevo jugador.
-        #Muestra mensaje de éxito o error según el resultado.
+            root.after(800, lambda: mostrar_facciones(root, 1))  # Ambos listos → facciones
 
+    def intentar_registro():
+        # Valida campos y registra un nuevo usuario en el JSON
         usuario = entry_usuario.get().strip()
         contrasena = entry_contrasena.get().strip()
-
         if not usuario or not contrasena:
             lbl_mensaje.config(text="Por favor completá ambos campos.", fg="#ff6b6b")
             return
-
-        # Validar longitud mínima de contraseña
         if len(contrasena) < 4:
             lbl_mensaje.config(text="La contraseña debe tener al menos 4 caracteres.", fg="#ff6b6b")
             return
-
-        exito = registrar_jugador(usuario, contrasena) #Llama a la funcion de registro
-
-        if not exito: # Si ya esta registrado
+        exito = registrar_jugador(usuario, contrasena)
+        if not exito:
             lbl_mensaje.config(text="Ese usuario ya existe. Intentá con otro.", fg="#ff6b6b")
             return
-
         lbl_mensaje.config(text="¡Registro exitoso! Ya podés iniciar sesión.", fg="#6bff8e")
-    btn_login = tk.Button(root, text="Iniciar sesión",
-        command=intentar_login, font=("Arial", 13),
-        bg="#0a0a14", fg="#ffffff", activebackground="#0f3460",
-        width=20, height=2, bd=0, cursor="hand2")
-    canvas_login.create_window(400, 360, window=btn_login)
 
+    # Botón principal — Iniciar sesión, ancho completo
+    btn_login = tk.Button(root, text="Iniciar sesión",
+        command=intentar_login, font=("Arial", 13, "bold"),
+        bg="#0f3460", fg="#ffffff",
+        activebackground="#1b5a8a", activeforeground="#ffffff",
+        width=28, height=2, bd=0, cursor="hand2", relief="flat")
+    canvas_login.create_window(400, 338, window=btn_login)
+
+    # Botones secundarios lado a lado: Registrarse | ← Menú
     btn_registro = tk.Button(root, text="Registrarse",
-        command=intentar_registro, font=("Arial", 13),
-        bg="#0a0a14", fg="#ffffff", activebackground="#0f3460",
-        width=20, height=2, bd=0, cursor="hand2")
-    canvas_login.create_window(400, 430, window=btn_registro)
+        command=intentar_registro, font=("Arial", 11),
+        bg="#111122", fg="#dddddd",
+        activebackground="#0f3460", activeforeground="#ffffff",
+        width=13, height=2, bd=0, cursor="hand2", relief="flat")
+    canvas_login.create_window(329, 393, window=btn_registro)
 
     btn_menu = tk.Button(root, text="Volver al menú",
-        command=lambda: mostrar_menu(root), font=("Arial", 13),
-        bg="#0a0a14", fg="#ffffff", activebackground="#0f3460",
-        width=20, height=2, bd=0, cursor="hand2")
-    canvas_login.create_window(400, 500, window=btn_menu)
+        command=lambda: mostrar_menu(root), font=("Arial", 11),
+        bg="#111122", fg="#dddddd",
+        activebackground="#0f3460", activeforeground="#ffffff",
+        width=13, height=2, bd=0, cursor="hand2", relief="flat")
+    canvas_login.create_window(471, 393, window=btn_menu)
 
 
 #  VENTANA SELECCIÓN DE FACCIONES
@@ -604,14 +683,22 @@ def mostrar_facciones(root, numero_jugador=1):
         activebackground="#0f3460", width=3, bd=0, cursor="hand2")
     canvas_facciones.create_window(770, 30, window=btn_vol)
 
+    # Muestra el nombre real del jugador en lugar de "Jugador N"
+    nombre_actual = jugadores_sesion[numero_jugador - 1]["usuario"]
     canvas_facciones.create_text(400, 80,
-        text=f"Jugador {numero_jugador} — Elige tu facción",
+        text=f"{nombre_actual} — Elige tu facción",
         font=("Arial", 22, "bold"), fill="#ffffff")
 
     if numero_jugador == 2 and facciones_sesion[0]:
+        # Muestra el nombre real del jugador 1 en vez de "Jugador 1"
+        nombre_j1 = jugadores_sesion[0]["usuario"]
+        # Sombra + texto claro para que el subtítulo se lea sobre el fondo
+        canvas_facciones.create_text(402, 127,
+            text=f"{nombre_j1} eligió: {facciones_sesion[0]}",
+            font=("Arial", 11), fill="#000000")
         canvas_facciones.create_text(400, 125,
-            text=f"Jugador 1 eligió: {facciones_sesion[0]}",
-            font=("Arial", 11), fill="#888888")
+            text=f"{nombre_j1} eligió: {facciones_sesion[0]}",
+            font=("Arial", 11), fill="#e0e0e0")
 
     lbl_mensaje = tk.Label(root, text="", font=("Arial", 10),
         bg="#0d1117", fg="#ff6b6b")
@@ -623,7 +710,9 @@ def mostrar_facciones(root, numero_jugador=1):
         #Registra la facción elegida por el jugador actual.
         #Valida que los dos jugadores no elijan la misma facción.
         if numero_jugador == 2 and faccion == facciones_sesion[0]:
-            lbl_mensaje.config(text="Esa facción ya fue elegida por el Jugador 1.")
+            # Muestra el nombre real del jugador 1 en el mensaje de error
+            nombre_j1 = jugadores_sesion[0]["usuario"]
+            lbl_mensaje.config(text=f"Esa facción ya fue elegida por {nombre_j1}.")
             return
         facciones_sesion[numero_jugador - 1] = faccion
         if numero_jugador == 1:
@@ -683,9 +772,6 @@ def mostrar_roles(root):
     canvas_roles.create_text(400, 100,
         text="Asignación de roles",
         font=("Arial", 22, "bold"), fill="#ffffff")
-    canvas_roles.create_text(400, 150,
-        text="¿Quién jugará como Defensor?",
-        font=("Arial", 13), fill="#888888")
 
     def elegir_defensor(idx):
         # idx: posición en jugadores_sesion del jugador que defiende
@@ -964,7 +1050,21 @@ def mostrar_juego(root):
 
     # Estado de la fase de ataque (la fase de construcción no los usa todavía;
     # la fase de ataque los actualizará cada turno)
-    vida_base = [300]        # HP de la base; cuando llega a 0 el atacante gana la ronda
+    vida_base         = [300]   # HP de la base; cuando llega a 0 el atacante gana la ronda
+    escudo_base       = [0]     # HP del escudo (0 = sin escudo activo)
+    base_evolucionada = [False] # Solo se puede evolucionar una vez por ronda
+    # Nivel comprado por tipo: cuando se mejora un tipo,
+    # las nuevas instancias de ese tipo arrancan en ese nivel.
+    # Se resetea al inicio de cada ronda.
+    nivel_comprado = {
+        TorreBasica:   1,
+        TorrePesada:   1,
+        TorreMagica:   1,
+        "muro":        1,
+        SoldadoBasico: 1,
+        Tanque:        1,
+        UnidadRapida:  1,
+    }
     unidades_activas = []    # Lista de objetos Unidad del atacante en el tablero
     dinero_atacante = [250]  # Dinero inicial del atacante para comprar tropas (ronda 1, sin bonos)
     turno_combate   = [0]    # Contador de turnos para activar habilidades cada 3 turnos
@@ -1042,16 +1142,18 @@ def mostrar_juego(root):
         bd=0, cursor="hand2"
     ).pack(pady=4)
 
-    # Botón pequeño de volumen en la barra inferior (derecha)
-    tk.Button(
-        barra_inferior, text="🔊",
-        command=lambda: mostrar_volumen(ventana_juego),
-        font=("Arial", 11), bg="#16213e", fg="#ffffff",
-        activebackground="#0f3460", activeforeground="#ffffff",
-        width=3, bd=0, cursor="hand2"
-    ).pack(side="right", padx=8, pady=4)
-
     # ---- Contenido del panel ----
+    # Botón de volumen en la esquina superior del panel lateral;
+    # usa el singleton de mostrar_volumen para no abrir ventanas duplicadas
+    tk.Button(
+        panel, text="🔊 Volumen",
+        command=lambda: mostrar_volumen(ventana_juego),
+        font=("Arial", 9), bg="#0d1117", fg="#ffffff",
+        activebackground="#0f3460", activeforeground="#ffffff",
+        bd=0, cursor="hand2"
+    ).pack(anchor="ne", padx=8, pady=(8, 0))
+
+    # Título de la fase debajo del botón de volumen
     tk.Label(panel, text="Fase de Construcción", font=("Arial", 12, "bold"),
              bg="#16213e", fg="#e0e0e0").pack(pady=(15, 5))
 
@@ -1073,6 +1175,20 @@ def mostrar_juego(root):
     lbl_estado = tk.Label(panel, text="", font=("Arial", 9),
                            bg="#16213e", fg="#ff6b6b", wraplength=180)
     lbl_estado.pack(pady=(0, 10))
+
+    # Indicador de primer paso: colocar la base
+    # Se oculta automáticamente en al_hacer_clic() cuando la base queda colocada
+    # Muestra el HP del escudo activo; se actualiza cada vez que el escudo absorbe daño
+    lbl_escudo = tk.Label(panel, text="", font=("Arial", 9),
+                          bg="#16213e", fg="#4a9aba", wraplength=180)
+    lbl_escudo.pack(pady=(0, 4))
+    lbl_escudo_nueva = None  # Se asigna en el panel de rondas siguientes
+
+    lbl_hint_base = tk.Label(panel,
+        text="① Primer clic: colocá\ntu BASE en el tablero",
+        font=("Arial", 9, "bold"), bg="#16213e", fg="#4a9aba",
+        wraplength=180, justify="center")
+    lbl_hint_base.pack(pady=(0, 8))
 
     def seleccionar_elemento(elemento):
         """
@@ -1142,27 +1258,117 @@ def mostrar_juego(root):
         lbl_estado.config(text="")  # Limpia cualquier mensaje de error previo
 
         # Botones de torres
+    # Torres con botón de mejora al lado — cada fila tiene construcción + mejora
     for clase_torre, info in INFO_TORRES.items():
+        fila_t = tk.Frame(panel, bg="#16213e")
+        fila_t.pack(pady=3, fill="x", padx=6)
+
         tk.Button(
-            panel, text=f"{info['nombre']}\n${info['costo']}",
-            command=lambda c=clase_torre: seleccionar_elemento(c),  # seleccionar_elemento
-            font=("Arial", 10), bg=info["color"], fg="#ffffff",
-            activebackground="#333333", width=18, height=2, bd=0, cursor="hand2"
-        ).pack(pady=4)
+            fila_t, text=f"{info['nombre']}\n${info['costo']}",
+            command=lambda c=clase_torre: seleccionar_elemento(c),  # captura c por valor para evitar bug de closure
+            font=("Arial", 9), bg=info["color"], fg="#ffffff",
+            activebackground="#333333", width=11, height=2, bd=0, cursor="hand2"
+        ).pack(side="left")
+
+        def mejorar_torre(ct=clase_torre, cb=info["costo"], nm=info["nombre"]):
+            nivel_actual = nivel_comprado[ct]  # Nivel actual comprado para este tipo
+            if nivel_actual >= 3:
+                lbl_estado.config(text=f"{nm} ya está en nivel máximo.", fg="#ff6b6b")
+                return
+            costo_real = int(cb * (0.5 if nivel_actual == 1 else 0.75))  # Nv2 = 50%, Nv3 = 75%
+            if dinero_defensor[0] < costo_real:
+                lbl_estado.config(text=f"Sin dinero. Mejora cuesta ${costo_real}.", fg="#ff6b6b")
+                return
+            dinero_defensor[0] -= costo_real
+            nivel_comprado[ct] += 1  # Nuevas torres de este tipo arrancan en este nivel
+            lbl_dinero.config(text=f"Dinero: ${dinero_defensor[0]}")
+            lbl_estado.config(
+                text=f"{nm}: nuevas torres salen en Nv{nivel_comprado[ct]} (${costo_real})",
+                fg="#6bff8e")
+
+        costo_mej = int(info["costo"] * 0.5)  # Precio indicativo del botón (Nv2)
+        tk.Button(
+            fila_t, text=f"⬆ Mejorar\n${costo_mej}",
+            command=mejorar_torre,
+            font=("Arial", 8), bg="#1a2a1a", fg="#aaffaa",
+            activebackground="#0f3460", width=7, height=2,
+            bd=0, cursor="hand2", relief="flat"
+        ).pack(side="left", padx=(4, 0))
 
     # Separador visual entre torres y muro
-    tk.Label(panel, text="─────────────", bg="#16213e", fg="#444444").pack(pady=4)
+    tk.Label(panel, text="─────────────", bg="#16213e", fg="#444444").pack(pady=3)
 
-    # Botón del muro
+    # Muro con botón de mejora al lado
+    fila_muro = tk.Frame(panel, bg="#16213e")
+    fila_muro.pack(pady=3, fill="x", padx=6)
+
     tk.Button(
-        panel, text=f"Muro\n${INFO_MURO['costo']}",
+        fila_muro, text=f"Muro\n${INFO_MURO['costo']}",
         command=lambda: seleccionar_elemento("muro"),
-        font=("Arial", 10), bg=INFO_MURO["color"], fg="#ffffff",
-        activebackground="#333333", width=18, height=2, bd=0, cursor="hand2"
-    ).pack(pady=4)
+        font=("Arial", 9), bg=INFO_MURO["color"], fg="#ffffff",
+        activebackground="#333333", width=11, height=2, bd=0, cursor="hand2"
+    ).pack(side="left")
+
+    def mejorar_muro():
+        nivel_actual = nivel_comprado["muro"]  # Nivel actual comprado para muros
+        if nivel_actual >= 3:
+            lbl_estado.config(text="Muro ya está en nivel máximo.", fg="#ff6b6b")
+            return
+        costo_real = int(30 * (0.5 if nivel_actual == 1 else 0.75))  # Nv2 = $15, Nv3 = $22
+        if dinero_defensor[0] < costo_real:
+            lbl_estado.config(text=f"Sin dinero. Mejora cuesta ${costo_real}.", fg="#ff6b6b")
+            return
+        dinero_defensor[0] -= costo_real
+        nivel_comprado["muro"] += 1  # Nuevos muros arrancan en este nivel
+        lbl_dinero.config(text=f"Dinero: ${dinero_defensor[0]}")
+        lbl_estado.config(
+            text=f"Muro: nuevos muros salen en Nv{nivel_comprado['muro']} (${costo_real})",
+            fg="#6bff8e")
+
+    tk.Button(
+        fila_muro, text="⬆ Mejorar\n$15",
+        command=mejorar_muro,
+        font=("Arial", 8), bg="#1a2a1a", fg="#aaffaa",
+        activebackground="#0f3460", width=7, height=2,
+        bd=0, cursor="hand2", relief="flat"
+    ).pack(side="left", padx=(4, 0))
+
+    # ── Evolucionar base ────────────────────────────────────────────────────
+    tk.Label(panel, text="─── Base ───", bg="#16213e", fg="#555577",
+             font=("Arial", 8)).pack(pady=(6, 2))
+
+    def evolucionar_base():
+        if base_evolucionada[0]:  # Solo se permite una evolución por ronda
+            lbl_estado.config(text="La base ya fue evolucionada esta ronda.")
+            return
+        if base_pos[0] is None:
+            lbl_estado.config(text="Primero colocá la base en el tablero.")
+            return
+        if dinero_defensor[0] < 120:
+            lbl_estado.config(text="Sin dinero. Evolucionar cuesta $120.")
+            return
+        dinero_defensor[0] -= 120              # Descuenta el costo de la evolución
+        vida_base[0] = int(vida_base[0] * 1.05)  # +5 % sobre el HP actual (no el máximo original)
+        escudo_base[0] = 80                    # HP inicial del escudo; se va agotando al absorber daño
+        base_evolucionada[0] = True            # Bloquea una segunda evolución en esta misma ronda
+        lbl_dinero.config(text=f"Dinero: ${dinero_defensor[0]}")
+        lbl_escudo.config(text=f"🛡 Escudo: {escudo_base[0]} HP")
+        lbl_estado.config(text="¡Base evolucionada! Escudo activo.", fg="#4a9aba")
+        btn_evolucionar_base.config(state="disabled")  # Impide presionar el botón una segunda vez
+        # Redibuja la celda de la base para mostrar la burbuja de escudo de inmediato
+        if base_pos[0] is not None:
+            dibujar_celda(base_pos[0], base_pos[1])
+
+    btn_evolucionar_base = tk.Button(panel,
+        text="⬆ Evolucionar base\n+Escudo  |  $120",
+        command=evolucionar_base,
+        font=("Arial", 8), bg="#1a2a3a", fg="#aaaaff",
+        activebackground="#0f3460", width=18, height=2,
+        bd=0, cursor="hand2", relief="flat")
+    btn_evolucionar_base.pack(pady=(0, 4))
 
     # Separador antes del botón Listo
-    tk.Label(panel, text="─────────────", bg="#16213e", fg="#444444").pack(pady=(15, 4))
+    tk.Label(panel, text="─────────────", bg="#16213e", fg="#444444").pack(pady=(8, 4))
 
     def fase_ataque():
         """
@@ -1234,14 +1440,42 @@ def mostrar_juego(root):
             lbl_estado_atac.config(text="")
 
         # Un botón por cada tipo de unidad definido en INFO_UNIDADES;
-        # usar lambda c=clase_unidad captura la clase correcta en cada iteración.
+        # Unidades con botón de mejora al lado — cada fila tiene despliegue + mejora
         for clase_unidad, info in INFO_UNIDADES.items():
+            fila_u = tk.Frame(panel, bg="#16213e")
+            fila_u.pack(pady=3, fill="x", padx=6)
+
             tk.Button(
-                panel, text=f"{info['nombre']}\n${info['costo']}",
-                command=lambda c=clase_unidad: seleccionar_unidad(c),
-                font=("Arial", 10), bg=info["color"], fg="#ffffff",
-                activebackground="#333333", width=18, height=2, bd=0, cursor="hand2"
-            ).pack(pady=4)
+                fila_u, text=f"{info['nombre']}\n${info['costo']}",
+                command=lambda c=clase_unidad: seleccionar_unidad(c),  # captura c por valor para evitar bug de closure
+                font=("Arial", 9), bg=info["color"], fg="#ffffff",
+                activebackground="#333333", width=11, height=2, bd=0, cursor="hand2"
+            ).pack(side="left")
+
+            def mejorar_unidad(cu=clase_unidad, cb=info["costo"], nm=info["nombre"]):
+                nivel_actual = nivel_comprado[cu]  # Nivel actual comprado para este tipo
+                if nivel_actual >= 3:
+                    lbl_estado_atac.config(text=f"{nm} ya está en nivel máximo.", fg="#ff6b6b")
+                    return
+                costo_real = int(cb * (0.5 if nivel_actual == 1 else 0.75))  # Nv2 = 50%, Nv3 = 75%
+                if dinero_atacante[0] < costo_real:
+                    lbl_estado_atac.config(text=f"Sin dinero. Mejora cuesta ${costo_real}.", fg="#ff6b6b")
+                    return
+                dinero_atacante[0] -= costo_real
+                nivel_comprado[cu] += 1  # Nuevas unidades de este tipo arrancan en este nivel
+                lbl_dinero_atac.config(text=f"Dinero: ${dinero_atacante[0]}")
+                lbl_estado_atac.config(
+                    text=f"{nm}: nuevas unidades salen en Nv{nivel_comprado[cu]} (${costo_real})",
+                    fg="#6bff8e")
+
+            costo_mej_u = int(info["costo"] * 0.5)  # Precio indicativo del botón (Nv2)
+            tk.Button(
+                fila_u, text=f"⬆ Mejorar\n${costo_mej_u}",
+                command=mejorar_unidad,
+                font=("Arial", 8), bg="#1a1a2a", fg="#aaaaff",
+                activebackground="#0f3460", width=7, height=2,
+                bd=0, cursor="hand2", relief="flat"
+            ).pack(side="left", padx=(4, 0))
 
         tk.Label(panel, text="─────────────", bg="#16213e", fg="#444444").pack(pady=(15, 4))
 
@@ -1314,7 +1548,11 @@ def mostrar_juego(root):
 
             # Registra la unidad: instancia la clase, la guarda en unidades_colocadas
             # y descuenta el costo; luego redibuja la celda para mostrarla en el tablero.
-            unidades_colocadas[(fila, col)] = unidad_seleccionada[0]()
+            nueva_unidad = unidad_seleccionada[0]()
+            # Aplica mejoras compradas para este tipo de unidad
+            for _ in range(nivel_comprado[unidad_seleccionada[0]] - 1):
+                nueva_unidad.mejorar()
+            unidades_colocadas[(fila, col)] = nueva_unidad
             dinero_atacante[0] -= info["costo"]
 
             # dibujar_celda() solo renderiza unidades que ya están en unidades_activas.
@@ -1396,11 +1634,13 @@ def mostrar_juego(root):
         texto = ""
         vida_actual = None  # None indica que esta celda no dibuja barra de vida
         vida_max    = None
+        nivel_obj = 1  # 1 = sin mejora, no se muestra nada
 
         # ── Prioridad 1: base central ──
         if fila == base_pos[0] and col == base_pos[1]:
-            color = "#e63946"                   # Rojo para distinguir la base del resto
-            texto = f"BASE\n{vida_base[0]}HP"   # Muestra el HP actual de la base en la celda
+            # Azul cuando el escudo está activo, rojo en condición normal
+            color = "#1a6aaa" if escudo_base[0] > 0 else "#e63946"
+            texto = f"BASE\n{vida_base[0]}HP"
 
         # ── Prioridad 2: torre colocada ──
         elif (fila, col) in torres_colocadas:
@@ -1411,6 +1651,7 @@ def mostrar_juego(root):
             vida_actual = torre.vida
             # Vida máxima fija por tipo; necesaria para calcular el porcentaje de la barra
             vida_max = {TorreBasica: 100, TorrePesada: 250, TorreMagica: 80}.get(type(torre), 100)
+            nivel_obj = torre.nivel
 
         # ── Prioridad 3: muro colocado ──
         elif (fila, col) in muros_colocados:
@@ -1419,6 +1660,7 @@ def mostrar_juego(root):
             texto = "W"               # W de Wall
             vida_actual = muro.vida
             vida_max    = 150         # Vida máxima fija definida en la clase Muro
+            nivel_obj = muro.nivel
 
         # ── Prioridad 4: unidad activa ──
         # Se evalúa después de torres y muros para no tapar estructuras con unidades encima
@@ -1429,6 +1671,7 @@ def mostrar_juego(root):
             texto  = info["simbolo"]
             vida_actual = unidad.vida
             vida_max    = unidad.vida_maxima  # Atributo guardado en la clase Unidad base
+            nivel_obj = unidad.nivel
 
         # ── Prioridad 5: zona de construcción (solo mapa clásico) ──
         elif esta_en_zona_construccion(fila, col, CENTRO_FILA, CENTRO_COLUMNA, RADIO_CONSTRUCCION) and mapa_sesion[0] == "clasico":
@@ -1529,6 +1772,43 @@ def mostrar_juego(root):
             # Mantiene la referencia viva para que Tkinter no descarte la imagen
             imagenes_activas[f"{fila}_{col}"] = sprite_img
 
+        # ── Burbuja de escudo en la base ──
+        # Solo se dibuja cuando la base tiene escudo activo, encima del sprite.
+        if (fila == base_pos[0] and col == base_pos[1]
+                and escudo_base[0] > 0):
+            # Óvalo exterior — borde azul eléctrico brillante
+            canvas.create_oval(
+                x1 + 2, y1 + 2, x2 - 2, y2 - 2,
+                outline="#4fc3f7", width=2,
+                tags=f"celda_{fila}_{col}")
+            # Óvalo interior más tenue — efecto de profundidad
+            canvas.create_oval(
+                x1 + 5, y1 + 5, x2 - 5, y2 - 5,
+                outline="#81d4fa", width=1,
+                tags=f"celda_{fila}_{col}")
+
+        # ── Indicador de nivel: franja superior con "N2"/"N3" ──
+        # Se dibuja al final para quedar encima del sprite.
+        # Solo aparece si el nivel es mayor a 1.
+        if nivel_obj > 1:
+            # Fondo negro semitransparente en franja superior (sombra del texto)
+            canvas.create_rectangle(
+                x1, y1, x2, y1 + 10,
+                fill="#000000", stipple="gray50", outline="",
+                tags=f"celda_{fila}_{col}")
+            # Sombra del texto (offset 1px)
+            canvas.create_text(
+                x1 + 5, y1 + 5,
+                text=f"N{nivel_obj}", fill="#000000",
+                font=("Arial", 7, "bold"), anchor="w",
+                tags=f"celda_{fila}_{col}")
+            # Texto principal en dorado
+            canvas.create_text(
+                x1 + 4, y1 + 4,
+                text=f"N{nivel_obj}", fill="#ffd700",
+                font=("Arial", 7, "bold"), anchor="w",
+                tags=f"celda_{fila}_{col}")
+
     for fila in range(FILAS):
         for col in range(COLUMNAS):
             dibujar_celda(fila, col)
@@ -1555,6 +1835,7 @@ def mostrar_juego(root):
                 lbl_estado.config(text="La base debe ir en la zona verde.")
                 return
             base_pos[0], base_pos[1] = fila, col
+            lbl_hint_base.pack_forget()  # Oculta el hint una vez colocada la base
             dibujar_celda(fila, col)
             lbl_estado.config(text="")
             return
@@ -1582,7 +1863,12 @@ def mostrar_juego(root):
             if dinero_defensor[0] < INFO_MURO["costo"]:
                 lbl_estado.config(text="No tenés suficiente dinero.")
                 return
-            muros_colocados[(fila, col)] = Muro()       # Instancia el muro
+            nuevo_muro = Muro()
+            # Aplica mejoras compradas: llama mejorar() tantas veces
+            # como niveles por encima de 1 haya en nivel_comprado
+            for _ in range(nivel_comprado["muro"] - 1):
+                nuevo_muro.mejorar()
+            muros_colocados[(fila, col)] = nuevo_muro
             dinero_defensor[0] -= INFO_MURO["costo"]    # Descuenta el costo
         else:
             # Colocar una torre
@@ -1591,7 +1877,11 @@ def mostrar_juego(root):
             if dinero_defensor[0] < info["costo"]:
                 lbl_estado.config(text="No tenés suficiente dinero.")
                 return
-            torres_colocadas[(fila, col)] = clase_torre()  # Instancia la torre
+            nueva_torre = clase_torre()
+            # Aplica mejoras compradas para este tipo de torre
+            for _ in range(nivel_comprado[clase_torre] - 1):
+                nueva_torre.mejorar()
+            torres_colocadas[(fila, col)] = nueva_torre
             dinero_defensor[0] -= info["costo"]            # Descuenta el costo
 
         # Actualiza el dinero y redibuja la celda
@@ -1636,7 +1926,17 @@ def mostrar_juego(root):
 
             # Si ya está en la base, la ataca y termina
             if df == 0 and dc == 0:
-                vida_base[0] -= unidad.dano
+                _d = unidad.dano
+                if escudo_base[0] > 0:
+                    # El escudo absorbe el 60 % del daño; el resto pasa a la base
+                    _absorbe = int(_d * 0.6)
+                    escudo_base[0] = max(0, escudo_base[0] - _absorbe)
+                    vida_base[0] -= (_d - _absorbe)
+                    _lbl = lbl_escudo_nueva if lbl_escudo_nueva is not None and lbl_escudo_nueva.winfo_exists() else lbl_escudo if lbl_escudo.winfo_exists() else None
+                    if _lbl:
+                        _lbl.config(text=f"🛡 Escudo: {escudo_base[0]} HP" if escudo_base[0] > 0 else "🛡 Escudo destruido")
+                else:
+                    vida_base[0] -= _d
                 dibujar_celda(fila_base, col_base)  # Actualiza HP visible de la base
                 break
 
@@ -1677,7 +1977,17 @@ def mostrar_juego(root):
                 break
             elif nueva_fila == fila_base and nueva_col == col_base:
                 # Llegó a la base: la ataca y termina
-                vida_base[0] -= unidad.dano
+                _d = unidad.dano
+                if escudo_base[0] > 0:
+                    # El escudo absorbe el 60 % del daño; el resto pasa a la base
+                    _absorbe = int(_d * 0.6)
+                    escudo_base[0] = max(0, escudo_base[0] - _absorbe)
+                    vida_base[0] -= (_d - _absorbe)
+                    _lbl = lbl_escudo_nueva if lbl_escudo_nueva is not None and lbl_escudo_nueva.winfo_exists() else lbl_escudo if lbl_escudo.winfo_exists() else None
+                    if _lbl:
+                        _lbl.config(text=f"🛡 Escudo: {escudo_base[0]} HP" if escudo_base[0] > 0 else "🛡 Escudo destruido")
+                else:
+                    vida_base[0] -= _d
                 dibujar_celda(fila_base, col_base)  # Muestra el nuevo HP de la base
                 break
             else:
@@ -1996,7 +2306,12 @@ def mostrar_juego(root):
         base_pos[0] = None
         base_pos[1] = None
         elemento_seleccionado[0] = None
-        vida_base[0] = 300
+        vida_base[0]         = 300
+        escudo_base[0]       = 0     # El escudo no persiste entre rondas
+        base_evolucionada[0] = False # Permite volver a evolucionar en la siguiente ronda
+        # Resetea los niveles comprados: cada ronda empieza desde Nv1
+        for clave in nivel_comprado:
+            nivel_comprado[clave] = 1
         unidades_activas.clear()
 
         # ── Dinero para la siguiente ronda ────────────────────────────────────────
@@ -2043,6 +2358,14 @@ def mostrar_juego(root):
         # Marcador de rondas actualizado: muestra el resultado de la ronda que acaba de terminar
         tk.Label(panel, text=f"Ronda — Def: {rondas_sesion['defensor']}  Atac: {rondas_sesion['atacante']}",
                  font=("Arial", 9), bg="#16213e", fg="#888888").pack(pady=(0, 10))
+
+        # Label de escudo para rondas siguientes (reemplaza al de ronda 1 que ya no existe)
+        lbl_escudo_nueva = tk.Label(panel, text="", font=("Arial", 9),
+                                    bg="#16213e", fg="#4a9aba", wraplength=180)
+        lbl_escudo_nueva.pack(pady=(0, 4))
+        # Si el escudo sigue activo de esta ronda, mostrar su HP
+        if escudo_base[0] > 0:
+            lbl_escudo_nueva.config(text=f"🛡 Escudo: {escudo_base[0]} HP")
 
         # Label que muestra qué torre/muro está seleccionado en este momento
         lbl_seleccion_nueva = tk.Label(panel, text="Elegí una torre",
@@ -2105,16 +2428,114 @@ def mostrar_juego(root):
                 canvas.bind("<Motion>", mostrar_alcance)
 
             lbl_estado_nueva.config(text="")  # Limpia cualquier mensaje de error previo
-        # Botones de torres — uno por cada tipo definido en INFO_TORRES
+        # Torres con botón de mejora al lado — misma lógica que ronda 1
         for clase_torre, info in INFO_TORRES.items():
-            tk.Button(panel, text=f"{info['nombre']}\n${info['costo']}",command=lambda c=clase_torre: seleccionar_elemento_nuevo(c),font=("Arial", 10), bg=info["color"], fg="#ffffff",activebackground="#333333", width=18, height=2, bd=0, cursor="hand2").pack(pady=4)
+            fila_t_n = tk.Frame(panel, bg="#16213e")
+            fila_t_n.pack(pady=3, fill="x", padx=6)
+
+            tk.Button(
+                fila_t_n, text=f"{info['nombre']}\n${info['costo']}",
+                command=lambda c=clase_torre: seleccionar_elemento_nuevo(c),  # captura c por valor para evitar bug de closure
+                font=("Arial", 9), bg=info["color"], fg="#ffffff",
+                activebackground="#333333", width=11, height=2, bd=0, cursor="hand2"
+            ).pack(side="left")
+
+            def mejorar_torre_n(ct=clase_torre, cb=info["costo"], nm=info["nombre"]):
+                nivel_actual = nivel_comprado[ct]  # Nivel actual comprado para este tipo
+                if nivel_actual >= 3:
+                    lbl_estado_nueva.config(text=f"{nm} ya está en nivel máximo.", fg="#ff6b6b")
+                    return
+                costo_real = int(cb * (0.5 if nivel_actual == 1 else 0.75))  # Nv2 = 50%, Nv3 = 75%
+                if dinero_defensor[0] < costo_real:
+                    lbl_estado_nueva.config(text=f"Sin dinero. Mejora cuesta ${costo_real}.", fg="#ff6b6b")
+                    return
+                dinero_defensor[0] -= costo_real
+                nivel_comprado[ct] += 1  # Nuevas torres de este tipo arrancan en este nivel
+                lbl_dinero_nueva.config(text=f"Dinero: ${dinero_defensor[0]}")
+                lbl_estado_nueva.config(
+                    text=f"{nm}: nuevas torres salen en Nv{nivel_comprado[ct]} (${costo_real})",
+                    fg="#6bff8e")
+
+            costo_mej_n = int(info["costo"] * 0.5)  # Precio indicativo del botón (Nv2)
+            tk.Button(
+                fila_t_n, text=f"⬆ Mejorar\n${costo_mej_n}",
+                command=mejorar_torre_n,
+                font=("Arial", 8), bg="#1a2a1a", fg="#aaffaa",
+                activebackground="#0f3460", width=7, height=2,
+                bd=0, cursor="hand2", relief="flat"
+            ).pack(side="left", padx=(4, 0))
 
         tk.Label(panel, text="─────────────", bg="#16213e", fg="#444444").pack(pady=4)
 
-        # Botón del muro
-        tk.Button(panel, text=f"Muro\n${INFO_MURO['costo']}",command=lambda: seleccionar_elemento_nuevo("muro"),font=("Arial", 10), bg=INFO_MURO["color"], fg="#ffffff",activebackground="#333333", width=18, height=2, bd=0, cursor="hand2").pack(pady=4)
+        # Muro con botón de mejora al lado
+        fila_muro_n = tk.Frame(panel, bg="#16213e")
+        fila_muro_n.pack(pady=3, fill="x", padx=6)
 
-        tk.Label(panel, text="─────────────", bg="#16213e", fg="#444444").pack(pady=(15, 4))
+        tk.Button(
+            fila_muro_n, text=f"Muro\n${INFO_MURO['costo']}",
+            command=lambda: seleccionar_elemento_nuevo("muro"),
+            font=("Arial", 9), bg=INFO_MURO["color"], fg="#ffffff",
+            activebackground="#333333", width=11, height=2, bd=0, cursor="hand2"
+        ).pack(side="left")
+
+        def mejorar_muro_n():
+            nivel_actual = nivel_comprado["muro"]  # Nivel actual comprado para muros
+            if nivel_actual >= 3:
+                lbl_estado_nueva.config(text="Muro ya está en nivel máximo.", fg="#ff6b6b")
+                return
+            costo_real = int(30 * (0.5 if nivel_actual == 1 else 0.75))  # Nv2 = $15, Nv3 = $22
+            if dinero_defensor[0] < costo_real:
+                lbl_estado_nueva.config(text=f"Sin dinero. Mejora cuesta ${costo_real}.", fg="#ff6b6b")
+                return
+            dinero_defensor[0] -= costo_real
+            nivel_comprado["muro"] += 1  # Nuevos muros arrancan en este nivel
+            lbl_dinero_nueva.config(text=f"Dinero: ${dinero_defensor[0]}")
+            lbl_estado_nueva.config(
+                text=f"Muro: nuevos muros salen en Nv{nivel_comprado['muro']} (${costo_real})",
+                fg="#6bff8e")
+
+        tk.Button(
+            fila_muro_n, text="⬆ Mejorar\n$15",
+            command=mejorar_muro_n,
+            font=("Arial", 8), bg="#1a2a1a", fg="#aaffaa",
+            activebackground="#0f3460", width=7, height=2,
+            bd=0, cursor="hand2", relief="flat"
+        ).pack(side="left", padx=(4, 0))
+
+        tk.Label(panel, text="─── Base ───", bg="#16213e", fg="#555577",
+                 font=("Arial", 8)).pack(pady=(6, 2))
+
+        def evolucionar_base_nueva():
+            if base_evolucionada[0]:  # Solo se permite una evolución por ronda
+                lbl_estado_nueva.config(text="La base ya fue evolucionada esta ronda.")
+                return
+            if base_pos[0] is None:
+                lbl_estado_nueva.config(text="Primero colocá la base en el tablero.")
+                return
+            if dinero_defensor[0] < 120:
+                lbl_estado_nueva.config(text="Sin dinero. Evolucionar cuesta $120.")
+                return
+            dinero_defensor[0] -= 120              # Descuenta el costo de la evolución
+            vida_base[0] = int(vida_base[0] * 1.25)  # +5 % sobre el HP actual (no el máximo original)
+            escudo_base[0] = 80                    # HP inicial del escudo; se va agotando al absorber daño
+            base_evolucionada[0] = True            # Bloquea una segunda evolución en esta misma ronda
+            lbl_dinero_nueva.config(text=f"Dinero: ${dinero_defensor[0]}")
+            lbl_escudo_nueva.config(text=f"🛡 Escudo: {escudo_base[0]} HP")
+            lbl_estado_nueva.config(text="¡Base evolucionada! Escudo activo.", fg="#4a9aba")
+            btn_evol_nueva.config(state="disabled")  # Impide presionar el botón una segunda vez
+            # Redibuja la celda de la base para mostrar la burbuja de escudo de inmediato
+            if base_pos[0] is not None:
+                dibujar_celda(base_pos[0], base_pos[1])
+
+        btn_evol_nueva = tk.Button(panel,
+            text="⬆ Evolucionar base\n+Escudo  |  $120",
+            command=evolucionar_base_nueva,
+            font=("Arial", 8), bg="#1a2a3a", fg="#aaaaff",
+            activebackground="#0f3460", width=18, height=2,
+            bd=0, cursor="hand2", relief="flat")
+        btn_evol_nueva.pack(pady=(0, 4))
+
+        tk.Label(panel, text="─────────────", bg="#16213e", fg="#444444").pack(pady=(8, 4))
 
         def terminar_construccion_nueva():
             # Cumple el mismo rol que terminar_construccion() de la ronda 1.
